@@ -15,6 +15,7 @@ import { theme } from '../../theme';
 import { CText } from '../../components/common/CText';
 import {globalStyles} from "../../theme/styles.ts";
 import BackHeader from "../../components/layout/BackHeader.tsx";
+import SmartSelectPicker from "../../components/pickers/SmartSelectPicker.tsx";
 
 export default function ScanQRDetailsScreen() {
     const navigation = useNavigation();
@@ -24,10 +25,11 @@ export default function ScanQRDetailsScreen() {
     const [destination, setDestination] = useState('');
     const [forField, setForField] = useState('');
     const [remarks, setRemarks] = useState('');
+    const [selectedAssignment, setSelectedAssignment] = useState('');
 
     const handleSubmit = () => {
         console.log({
-            actionType: ['INCOMING', 'OUTGOING', 'RETURN', 'TERMINAL'][selected],
+            actionType: ['Incoming', 'Outgoing', 'Return', 'Done'][selected],
             courier,
             destination,
             forField,
@@ -45,7 +47,7 @@ export default function ScanQRDetailsScreen() {
                     Action Type
                 </CText>
                 <View style={styles.radioGroup}>
-                    {['INCOMING', 'OUTGOING', 'RETURN', 'TERMINAL'].map((item, index) => (
+                    {['Incoming', 'Outgoing', 'Return', 'Terminal'].map((item, index) => (
                         <TouchableOpacity
                             key={item}
                             style={selected === index ? styles.radioSelected : styles.radio}
@@ -59,10 +61,13 @@ export default function ScanQRDetailsScreen() {
                 </View>
 
                 <Text style={styles.label}>Your Tracking Unit Selection</Text>
-                <TextInput
-                    style={[styles.input, { backgroundColor: '#f0f0f0' }]}
-                    value="College of Engineering and Information Technology"
-                    editable={false}
+                <SmartSelectPicker
+                    value={selectedAssignment}
+                    onValueChange={setSelectedAssignment}
+                    apiUrl="/rts/user/assignment"
+                    labelKey="unit.UnitName"
+                    valueKey="EmployeeAssignmentID"
+                    placeholder="Select Assignment"
                 />
 
                 <Text style={styles.label}>Courier</Text>

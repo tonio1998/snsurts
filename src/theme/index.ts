@@ -1,25 +1,33 @@
 const colors = {
     light: {
-        background: '#FFF',
-        surface: '#E0E8F3',
-        text: '#1C1C1E',
-        inputBackground: '#FFF',
-        border: '#DADADA',
-        primary: '#008001',
-        primary_soft: '#008001',
-        secondary: '#007DFE',
-        secondary_soft: '#DCECC7',
-        success: '#34C759',
-        success_soft: '#C8E6C9',
-        danger: '#FF3B30',
-        danger_soft: '#FFCDD2',
-        warning: '#FCBE02',
-        warning_soft: '#FFF3CD',
-        info: '#5AC8FA',
-        info_soft: '#B3E5FC',
-        muted: '#F8F8F8',
-        muted_soft: '#E0E0E0',
-        card: "#FFF"
+        background: '#F9FAFB',           // soft off-white, easier on the eyes than pure white
+        surface: '#E5EAF2',              // calm and clean surface tone
+        text: '#111827',                 // deep slate for better readability
+        inputBackground: '#FFFFFF',     // keep form fields clean and bright
+        border: '#D1D5DB',              // soft border tone (not too harsh)
+
+        primary: '#166534',             // strong forest green (trust + action)
+        primary_soft: '#D1FAE5',        // soft green tint for subtle elements
+
+        secondary: '#2563EB',           // vibrant but professional blue
+        secondary_soft: '#DBEAFE',      // gentle blue for light accents
+
+        success: '#10B981',             // emerald green (for "Approved", "Completed")
+        success_soft: '#D1FAE5',        // soft success background
+
+        danger: '#DC2626',              // red-600 for errors
+        danger_soft: '#FECACA',         // red-200 for background highlights
+
+        warning: '#F59E0B',             // amber warning
+        warning_soft: '#FEF3C7',        // subtle warning bg
+
+        info: '#0EA5E9',                // cyan-500 (informational)
+        info_soft: '#E0F2FE',           // cyan-100 background
+
+        muted: '#F3F4F6',               // light gray for less important areas
+        muted_soft: '#E5E7EB',          // slightly darker muted tone
+
+        card: '#FFFFFF'                 // cards should stay clean and pop on soft bg
     },
     dark: {
         background: '#000000',
