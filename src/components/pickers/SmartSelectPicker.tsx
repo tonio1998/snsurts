@@ -3,6 +3,11 @@ import { View, StyleSheet } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 import api from '../../api/api.ts';
 
+function getNestedValue(obj, keyPath) {
+	return keyPath.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : null), obj);
+}
+
+
 export default function SmartSelectPicker({
 	                                          value,
 	                                          onValueChange,
@@ -19,9 +24,10 @@ export default function SmartSelectPicker({
 		if (apiUrl) {
 			api.get(apiUrl).then((res) => {
 				const formatted = res.data.map((item) => ({
-					label: item[labelKey],
-					value: String(item[valueKey]),
+					label: getNestedValue(item, labelKey) || 'Unnamed',
+					value: String(getNestedValue(item, valueKey)),
 				}));
+
 				setOptions(formatted);
 			});
 		} else {
@@ -44,6 +50,7 @@ export default function SmartSelectPicker({
 					onValueChange?.(String(result));
 				}}
 				items={options}
+				listMode="SCROLLVIEW"
 				setItems={setOptions}
 				placeholder={placeholder}
 				searchable={true}
