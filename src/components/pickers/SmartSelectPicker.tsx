@@ -16,19 +16,50 @@ export default function SmartSelectPicker({
 	                                          labelKey = 'label',
 	                                          valueKey = 'value',
 	                                          placeholder = 'Select one',
+											  onLoad,
                                           }) {
 	const [open, setOpen] = useState(false);
 	const [options, setOptions] = useState([]);
+	const [searchText, setSearchText] = useState('');
+	const [tempOptions, setTempOptions] = useState([]);
+
+	useEffect(() => {
+		const debounce = setTimeout(() => {
+			if (apiUrl && searchText.length >= 2) {
+				api.get(`${apiUrl}?search=${encodeURIComponent(searchText)}`).then((res) => {
+					const formatted = res.data.map((item) => ({
+						label: getNestedValue(item, labelKey) || 'Unnamed',
+						value: String(getNestedValue(item, valueKey)),
+					}));
+					setTempOptions(formatted);
+				});
+			}
+		}, 500);
+
+		return () => clearTimeout(debounce);
+	}, [searchText]);
+
+	useEffect(() => {
+		if (open && searchText.length >= 2) {
+			setOptions(tempOptions);
+		}
+	}, [tempOptions, open]);
+
 
 	useEffect(() => {
 		if (apiUrl) {
 			api.get(apiUrl).then((res) => {
+				console.log("res.data: ", res.data)
 				const formatted = res.data.map((item) => ({
 					label: getNestedValue(item, labelKey) || 'Unnamed',
 					value: String(getNestedValue(item, valueKey)),
 				}));
 
 				setOptions(formatted);
+
+				if (typeof onLoad === 'function') {
+					onLoad(res.data);
+				}
 			});
 		} else {
 			const formatted = items.map((item) => ({
@@ -36,8 +67,12 @@ export default function SmartSelectPicker({
 				value: String(item[valueKey]),
 			}));
 			setOptions(formatted);
+
+			if (typeof onLoad === 'function') {
+				onLoad(items);
+			}
 		}
-	}, [apiUrl, items, labelKey, valueKey]);
+	}, [apiUrl]);
 
 	return (
 		<View style={styles.container}>
@@ -50,17 +85,24 @@ export default function SmartSelectPicker({
 					onValueChange?.(String(result));
 				}}
 				items={options}
-				listMode="SCROLLVIEW"
+				searchable={true}
+				searchTextInputProps={{
+					value: searchText,
+					onChangeText: (text) => setSearchText(text),
+				}}
+				listMode="MODAL"
 				setItems={setOptions}
 				placeholder={placeholder}
-				searchable={true}
 				style={styles.pickerSelectStyles}
 				dropDownContainerStyle={{
 					maxHeight: 150,
 					borderColor: 'lightgray',
+					zIndex: 10000,
+					elevation: 10
 				}}
 				zIndex={9999999}
 			/>
+
 		</View>
 	);
 }
