@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Dimensions, StatusBar } from 'react-native';
+import {Dimensions, StatusBar, TouchableOpacity} from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { theme } from '../theme';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -15,6 +15,8 @@ import {useAuth} from "../context/AuthContext.tsx";
 import ClassesListScreen from "../screens/Faculty/Classes/ClassesListScreen.tsx";
 import UserProfileScreen from "../Shared/User/UserProfileScreen.tsx";
 import ScanScreen from "../screens/Scanner/ScanScreen.tsx";
+import RecordsScreen from "../screens/Records/RecordsScreen.tsx";
+import AddDocumentScreen from "../screens/Records/AddRecordScreen.tsx";
 
 const Tab = createBottomTabNavigator();
 const ClassesStack = createNativeStackNavigator();
@@ -44,6 +46,7 @@ export default function BottomTabNav() {
 	return (
 		<>
 			<Tab.Navigator
+				initialRouteName="Home"
 				screenOptions={({ route }) => ({
 					tabBarIcon: ({ color, size, focused }) => {
 						let iconName = 'ellipse-outline';
@@ -54,6 +57,12 @@ export default function BottomTabNav() {
 								case 'Scan':
 									iconName = focused ? 'qr-code' : 'qr-code';
 									break;
+									case 'Records':
+										iconName = focused ? 'list' : 'list-outline';
+										break;
+										case 'Add':
+											iconName = focused ? 'add-circle' : 'add-circle-outline';
+											break;
 							default:
 								break;
 						}
@@ -92,11 +101,39 @@ export default function BottomTabNav() {
 			>
 
 				<Tab.Screen name="Home" component={HomeScreen} />
-				{hasRole('FISEmployee') && (
-					<>
-						<Tab.Screen name="Scan" component={ScanScreen} />
-					</>
-				)}
+				<Tab.Screen name="Records" component={RecordsScreen} />
+				<Tab.Screen
+					name="Scan"
+					component={ScanScreen}
+					options={{
+						tabBarLabel: () => null,
+						tabBarIcon: () => null,
+						tabBarButton: (props) => (
+							<TouchableOpacity
+								{...props}
+								style={{
+									top: -35,
+									justifyContent: 'center',
+									alignItems: 'center',
+									shadowColor: currentColors.primary,
+									shadowOffset: { width: 0, height: 5 },
+									shadowOpacity: 0.3,
+									shadowRadius: 5,
+									elevation: 5,
+									// backgroundColor: currentColors.primary,
+									width: 65,
+									height: 65,
+									borderRadius: 30,
+								}}
+							>
+								<Icon name="scan-circle" size={70} color={currentColors.primary} />
+							</TouchableOpacity>
+						),
+					}}
+				/>
+				<Tab.Screen name="Add" component={AddDocumentScreen} />
+				<Tab.Screen name="Recordss" component={RecordsScreen} />
+				{/*<Tab.Screen name="Recordsss" component={RecordsScreen} />*/}
 				{/*<Tab.Screen name="Grades" component={GradesScreen} />*/}
 			</Tab.Navigator>
 		</>

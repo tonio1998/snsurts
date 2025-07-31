@@ -14,23 +14,13 @@ import {
     View,
     Vibration, TouchableOpacity
 } from "react-native";
-import NetInfo from "@react-native-community/netinfo";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import {getCurrentLocation} from "../../services/locationService.ts";
-import {FILE_BASE_URL} from "../../../env.ts";
-import {registerSyncHandler} from "../../utils/sqlite/syncManager";
 import CustomHeader from "../../components/layout/CustomHeader.tsx";
-import {theme} from "../../theme";
-import CButton from "../../components/buttons/CButton.tsx";
-import {CText} from "../../components/common/CText.tsx";
 import {Camera} from "react-native-camera-kit";
-import {formatDate} from "../../utils/dateFormatter";
-import {globalStyles} from "../../theme/styles.ts";
 import {handleApiError} from "../../utils/errorHandler.ts";
-import {addToLogs} from "../../api/modules/logsApi.ts";
 import {useAuth} from "../../context/AuthContext.tsx";
+import {addToLogs} from "../../api/modules/logsApi.ts";
 
-export default function ScanScreen() {
+export default function ScannerValidator({route}) {
     const { user } = useAuth();
     const network = useContext(NetworkContext);
     const navigation = useNavigation();
@@ -38,22 +28,13 @@ export default function ScanScreen() {
     const [scanned, setScanned] = useState(false);
     const [cameraType, setCameraType] = useState(false);
     const [continuousScan, setContinuousScan] = useState(false);
-    const [userScanned, setuserScanned] = useState();
     const cameraRef = useRef(null);
     const scannedRef = useRef(false);
     const scanLineAnim = useRef(new Animated.Value(0)).current;
-    const [selected, setSelected] = useState<0 | 1 | null>(1);
-    const {showAlert} = useAlert();
-    const [offlineCount, setOfflineCount] = useState(0);
-    const [syncing, setSyncing] = useState(false);
     const [syncProgress, setSyncProgress] = useState(0);
-    const [isOnline, setIsOnline] = useState(false);
     const animatedProgress = useRef(new Animated.Value(0)).current;
     const isFocused = useIsFocused();
-    const [location, setLocation] = useState({latitude: null, longitude: null});
     const SCAN_BOX_SIZE = 300;
-    const [imageUri, setImageUri] = useState();
-    const [recentScan, setRecentScan] = useState(false);
 
     useEffect(() => {
         const animation = Animated.timing(animatedProgress, {
@@ -64,26 +45,6 @@ export default function ScanScreen() {
         animation.start();
         return () => animation.stop();
     }, [syncProgress]);
-
-    const fetchRecentScan = async () => {
-        const key = 'recentScan' + user?.id;
-        try {
-            const stored = await AsyncStorage.getItem(key);
-            const scanList = stored ? JSON.parse(stored) : [];
-            setRecentScan(scanList);
-
-
-            console.log("recentScans lists: ", recentScan);
-        } catch (e) {
-            console.error("Error fetching recent scans:", e);
-        }
-    };
-
-    useFocusEffect(
-        useCallback(() => {
-            fetchRecentScan();
-        }, [])
-    );
 
     useEffect(() => {
         Animated.loop(
@@ -101,34 +62,6 @@ export default function ScanScreen() {
             ])
         ).start();
     }, []);
-
-    const isConnectedNow = (state) => state.isConnected && state.isInternetReachable;
-
-    useEffect(() => {
-        const unsubscribe = NetInfo.addEventListener(async state => {
-            const connected = isConnectedNow(state);
-            setIsOnline(connected);
-
-            const logs = await AsyncStorage.getItem('offline_logs');
-            const parsed = JSON.parse(logs || '[]');
-            setOfflineCount(parsed.length);
-        });
-        return () => unsubscribe();
-    }, []);
-
-    useEffect(() => {
-        const fetchLocation = async () => {
-            try {
-                const currentLocation = await getCurrentLocation();
-                setLocation(currentLocation);
-            } catch (error) {
-                console.warn('Failed to get location:', error.message);
-                setLocation({latitude: null, longitude: null});
-            }
-        };
-        fetchLocation();
-    }, []);
-
     const onBarcodeRead = async (event) => {
         if (!continuousScan && scannedRef.current) return;
 
@@ -143,8 +76,12 @@ export default function ScanScreen() {
         Vibration.vibrate(100);
 
         try {
-            if (network?.isOnline) {
-                navigation.navigate('ScanQRDetails', {qr_code});
+            const response = await addToLogs(qr_code);
+            if (response) {
+                const callback = route.params?.onScanComplete;
+                if (callback) callback(qr_code);
+
+                navigation.goBack();
             }
         } catch (error) {
             handleApiError(error, 'QR (stored offline)');
@@ -157,18 +94,6 @@ export default function ScanScreen() {
             }
         }
     };
-
-    const handleManualSync = async () => {
-        setSyncing(true);
-        setSyncProgress(0);
-        await syncOfflineLogs((percent) => {
-            setSyncProgress(percent);
-        });
-        setSyncing(false);
-        setOfflineCount(0);
-    };
-
-    registerSyncHandler(handleManualSync);
 
     useEffect(() => {
         const requestPermission = async () => {
@@ -230,28 +155,6 @@ export default function ScanScreen() {
                             </View>
                         </View>
                     )}
-
-                    {recentScan.length > 0 && (
-                        <View style={styles.recentScansSection}>
-                            <CText fontStyle="SB" fontSize={16} style={styles.recentScansTitle}>
-                                Recent Scans
-                            </CText>
-                            {recentScan.slice(0, 3).map((item, index) => (
-                                <TouchableOpacity
-                                    key={item + index}
-                                    style={styles.recentScanCard}
-                                    onPress={() => navigation.navigate('ScanQRDetails', { qr_code: item })}
-                                    activeOpacity={0.8}
-                                >
-                                    <CText fontStyle="SB" fontSize={14} style={styles.recentScanText}>
-                                        {item}
-                                    </CText>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    )}
-
-
                 </ScrollView>
             </SafeAreaView>
         </>

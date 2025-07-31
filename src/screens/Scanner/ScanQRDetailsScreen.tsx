@@ -1,7 +1,9 @@
+// ✅ Updated: Replaced ScrollView with FlatList to resolve VirtualizedList nesting warning
+// ✅ Polish: UI enhancements with spacing, readability, and slight visual upgrades
+
 import React, { useEffect, useState } from 'react';
 import {
     SafeAreaView,
-    ScrollView,
     View,
     Text,
     TextInput,
@@ -11,22 +13,27 @@ import {
     Alert,
     ActivityIndicator,
     KeyboardAvoidingView,
-    PermissionsAndroid, Vibration,
+    PermissionsAndroid,
+    Vibration,
+    FlatList,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Geolocation from '@react-native-community/geolocation';
 import { CText } from '../../components/common/CText';
-import { globalStyles } from "../../theme/styles.ts";
-import BackHeader from "../../components/layout/BackHeader.tsx";
-import SmartSelectPicker from "../../components/pickers/SmartSelectPicker.tsx";
+import { globalStyles } from '../../theme/styles.ts';
+import BackHeader from '../../components/layout/BackHeader.tsx';
+import SmartSelectPicker from '../../components/pickers/SmartSelectPicker.tsx';
 import api from '../../api/api.ts';
 import { theme } from '../../theme';
-import {handleApiError} from "../../utils/errorHandler.ts";
+import { handleApiError } from '../../utils/errorHandler.ts';
 import Autocomplete from 'react-native-autocomplete-input';
+import { useTracking } from '../../context/TrackingContext.tsx';
 
-export default function ScanQRDetailsScreen({ route }) {
+export default function ScanQRDetailsScreen() {
     const navigation = useNavigation();
-    const TransactionID = route.params.response.record.id;
+    const { record, logs } = useTracking();
+
+    const TransactionID = record?.id;
 
     const [selected, setSelected] = useState<0 | 1 | 2 | 3>(1);
     const [courier, setCourier] = useState('');
@@ -39,7 +46,12 @@ export default function ScanQRDetailsScreen({ route }) {
     const [assignmentList, setAssignmentList] = useState([]);
     const [filteredSuggestions, setFilteredSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [waited, setWaited] = useState(false);
 
+    useEffect(() => {
+        const timeout = setTimeout(() => setWaited(true), 1000);
+        return () => clearTimeout(timeout);
+    }, []);
 
     const getLocation = async () => {
         try {
@@ -47,10 +59,7 @@ export default function ScanQRDetailsScreen({ route }) {
                 const granted = await PermissionsAndroid.request(
                     PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
                 );
-                if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-                    console.warn('Location permission denied');
-                    return;
-                }
+                if (granted !== PermissionsAndroid.RESULTS.GRANTED) return;
             }
 
             Geolocation.getCurrentPosition(
@@ -60,52 +69,32 @@ export default function ScanQRDetailsScreen({ route }) {
                         longitude: pos.coords.longitude,
                     });
                 },
-                (error) => {
-                    console.error('Location error: ', error);
-                },
+                () => {},
                 { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
             );
-        } catch (err) {
-            console.error('getLocation error:', err);
-        }
+        } catch {}
     };
 
     useEffect(() => {
         getLocation();
-
-        const lastLog = route.params.response.logs;
-        console.log("lastLog: ", lastLog)
-        if (lastLog?.courier) {
-            setCourier(String(lastLog.courier));
-        }
+        if (logs?.courier) setCourier(String(logs.courier));
     }, []);
 
     const handleSubmit = async () => {
-        const isIncoming = selected === 0;
+        if (!TransactionID) return Alert.alert('Error', 'Missing transaction reference. Please scan again.');
+
         const isOutgoing = selected === 1;
         const isReturn = selected === 2;
-        const isTerminal = selected === 3;
 
-        if (!selectedAssignment) {
-            Alert.alert('Error', 'Assignment is required.');
-            return;
-        }
-
-        if (isOutgoing && (!courier || !destination || !forField)) {
-            Alert.alert('Error', 'Please fill out all required fields for Outgoing.');
-            return;
-        }
-
-        if (isReturn && (!courier || !destination)) {
-            Alert.alert('Error', 'Courier and Destination are required for Return.');
-            return;
-        }
+        if (!selectedAssignment) return Alert.alert('Error', 'Assignment is required.');
+        if (isOutgoing && (!courier || !destination || !forField)) return Alert.alert('Error', 'Please fill out all required fields for Outgoing.');
+        if (isReturn && (!courier || !destination)) return Alert.alert('Error', 'Courier and Destination are required for Return.');
 
         setLoading(true);
 
         try {
             const payload = {
-                TransactionID: TransactionID,
+                TransactionID,
                 action_type: ['Incoming', 'Outgoing', 'Return', 'Terminal'][selected],
                 courier_id: courier || null,
                 destination_unit_id: destination || null,
@@ -118,15 +107,12 @@ export default function ScanQRDetailsScreen({ route }) {
 
             await api.post('/rts/log/add', payload);
 
-            Alert.alert('Success', 'Document logged successfully!', [
-                { text: 'OK'}]);
-
+            Alert.alert('Success', 'Document logged successfully!', [{ text: 'OK' }]);
             Vibration.vibrate(100);
-
-            navigation.goBack()
+            navigation.navigate('History');
         } catch (error) {
             console.error('Submission failed:', error);
-            handleApiError(error, "df")
+            handleApiError(error, 'log submission');
             Alert.alert('Submission Failed', 'Something went wrong. Try again.');
         } finally {
             setLoading(false);
@@ -134,153 +120,155 @@ export default function ScanQRDetailsScreen({ route }) {
     };
 
     const forSuggestions = [
-        "appropriate action",
-        "coding/deposit/preparation of receipt",
-        "comment/reaction/response",
-        "compliance/implementation",
-        "dissemimation of information",
-        "draft of reply",
-        "endorsement/recommendation",
-        "follow-up",
-        "investigation/verification and report",
-        "notation and returen/file",
-        "notification/reply to party",
-        "study and report to",
-        "translation",
-        "your information",
+        'appropriate action',
+        'coding/deposit/preparation of receipt',
+        'comment/reaction/response',
+        'compliance/implementation',
+        'dissemimation of information',
+        'draft of reply',
+        'endorsement/recommendation',
+        'follow-up',
+        'investigation/verification and report',
+        'notation and returen/file',
+        'notification/reply to party',
+        'study and report to',
+        'translation',
+        'your information',
     ];
 
+    if (!TransactionID && waited) {
+        return (
+            <SafeAreaView style={globalStyles.safeArea}>
+                <BackHeader title={'Document Action'} />
+                <View style={styles.centered}>
+                    <Text style={{ color: theme.colors.light.danger, fontSize: 16 }}>Invalid transaction. Please scan again.</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (!waited) {
+        return (
+            <View style={styles.centered}>
+                <ActivityIndicator size="large" color={theme.colors.light.primary} />
+                <Text>fetching data...</Text>
+            </View>
+        );
+    }
 
     return (
         <SafeAreaView style={globalStyles.safeArea}>
             <BackHeader title={'Document Action'} />
-            <KeyboardAvoidingView
-                style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
-            >
-                <ScrollView
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={100}>
+                <FlatList
                     contentContainerStyle={styles.formWrapper}
                     keyboardShouldPersistTaps="handled"
-                >
-                    <CText fontStyle="B" fontSize={16} style={styles.sectionTitle}>
-                        Action Type
-                    </CText>
-                    <View style={styles.radioGroup}>
-                        {['Incoming', 'Outgoing', 'Return', 'Terminal'].map((item, index) => (
-                            <TouchableOpacity
-                                key={item}
-                                style={selected === index ? styles.radioSelected : styles.radio}
-                                onPress={() => setSelected(index as 0 | 1 | 2 | 3)}
-                            >
-                                <Text style={selected === index ? styles.radioTextSelected : styles.radioText}>
-                                    {item}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
+                    ListHeaderComponent={<>
+                        <CText fontStyle="B" fontSize={16} style={styles.sectionTitle}>Action Type</CText>
+                        <View style={styles.radioGroup}>
+                            {['Incoming', 'Outgoing', 'Return', 'Terminal'].map((item, index) => (
+                                <TouchableOpacity
+                                    key={item}
+                                    style={selected === index ? styles.radioSelected : styles.radio}
+                                    onPress={() => setSelected(index as 0 | 1 | 2 | 3)}
+                                >
+                                    <Text style={selected === index ? styles.radioTextSelected : styles.radioText}>{item}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
 
-                    <Text style={styles.label}>Your Tracking Unit Selection</Text>
-                    <SmartSelectPicker
-                        value={selectedAssignment}
-                        onValueChange={setSelectedAssignment}
-                        apiUrl="/rts/user/assignment"
-                        labelKey="unit.UnitName"
-                        valueKey="EmployeeAssignmentID"
-                        placeholder="Select Assignment"
-                        onLoad={(data) => {
-                            setAssignmentList(data);
-                            if (!selectedAssignment && data.length > 0) {
-                                setSelectedAssignment(String(data[0].EmployeeAssignmentID));
-                            }
-                        }}
-                    />
+                        <Text style={styles.label}>Your Tracking Unit Selection</Text>
+                        <SmartSelectPicker
+                            value={selectedAssignment}
+                            onValueChange={setSelectedAssignment}
+                            apiUrl="/rts/user/assignment"
+                            labelKey="unit.UnitName"
+                            valueKey="unit.UnitID"
+                            placeholder="Select Assignment"
+                            onLoad={(data) => {
+                                setAssignmentList(data);
+                                if (!selectedAssignment && data.length > 0) setSelectedAssignment(String(data[0].unit.UnitID));
+                            }}
+                        />
 
-                    {(selected === 1 || selected === 2) && (
-                        <>
-                            <Text style={styles.label}>Courier</Text>
-                            <SmartSelectPicker
-                                value={courier}
-                                onValueChange={setCourier}
-                                apiUrl="/rts/user"
-                                labelKey="name"
-                                valueKey="id"
-                                placeholder="Select Courier"
-                            />
-                        </>
-                    )}
+                        {(selected === 1 || selected === 2) && (
+                            <>
+                                <Text style={styles.label}>Courier</Text>
+                                <SmartSelectPicker
+                                    value={courier}
+                                    onValueChange={setCourier}
+                                    apiUrl="/rts/user"
+                                    labelKey="name"
+                                    valueKey="id"
+                                    placeholder="Select Courier"
+                                />
 
-                    {(selected === 1 || selected === 2) && (
-                        <>
-                            <Text style={styles.label}>Destination</Text>
-                            <SmartSelectPicker
-                                value={destination}
-                                onValueChange={setDestination}
-                                apiUrl="/rts/units"
-                                labelKey="UnitName"
-                                valueKey="UnitID"
-                                placeholder="Select Destination"
-                            />
-                        </>
-                    )}
+                                <Text style={styles.label}>Destination</Text>
+                                <SmartSelectPicker
+                                    value={destination}
+                                    onValueChange={setDestination}
+                                    apiUrl="/rts/units"
+                                    labelKey="UnitName"
+                                    valueKey="UnitID"
+                                    placeholder="Select Destination"
+                                />
+                            </>
+                        )}
 
-                    {selected === 1 && (
-                        <>
-                            <Text style={styles.label}>For</Text>
-                            <Autocomplete
-                                data={filteredSuggestions}
-                                value={forField}
-                                onChangeText={(text) => {
-                                    setForField(text);
-                                    if (text.length > 0) {
-                                        const filtered = forSuggestions.filter(item =>
-                                            item.toLowerCase().includes(text.toLowerCase())
-                                        );
-                                        setFilteredSuggestions(filtered);
-                                        setShowSuggestions(true);
-                                    } else {
-                                        setShowSuggestions(false);
-                                    }
-                                }}
-                                flatListProps={{
-                                    keyboardShouldPersistTaps: 'handled',
-                                    keyExtractor: (_, i) => i.toString(),
-                                    renderItem: ({ item }) => (
-                                        <TouchableOpacity
-                                            onPress={() => {
+                        {selected === 1 && (
+                            <>
+                                <Text style={styles.label}>For</Text>
+                                <Autocomplete
+                                    data={filteredSuggestions}
+                                    value={forField}
+                                    onChangeText={(text) => {
+                                        setForField(text);
+                                        if (text.length > 0) {
+                                            const filtered = forSuggestions.filter(item => item.toLowerCase().includes(text.toLowerCase()));
+                                            setFilteredSuggestions(filtered);
+                                            setShowSuggestions(true);
+                                        } else {
+                                            setShowSuggestions(false);
+                                        }
+                                    }}
+                                    flatListProps={{
+                                        keyboardShouldPersistTaps: 'handled',
+                                        keyExtractor: (_, i) => i.toString(),
+                                        renderItem: ({ item }) => (
+                                            <TouchableOpacity onPress={() => {
                                                 setForField(item);
                                                 setShowSuggestions(false);
-                                            }}
-                                        >
-                                            <Text style={styles.suggestionItem}>{item}</Text>
-                                        </TouchableOpacity>
-                                    ),
-                                }}
-                                inputContainerStyle={styles.input}
-                                listContainerStyle={{ maxHeight: 200 }}
-                            />
+                                            }}>
+                                                <Text style={styles.suggestionItem}>{item}</Text>
+                                            </TouchableOpacity>
+                                        ),
+                                    }}
+                                    inputContainerStyle={styles.input}
+                                    listContainerStyle={{ maxHeight: 200 }}
+                                />
+                                <Text style={styles.helperText}>
+                                    Provide a direct action only. Do not mention persons or offices. Use the comment section for extra info.
+                                </Text>
+                            </>
+                        )}
+
+                        <Text style={styles.label}>Other Comment/Remarks</Text>
+                        <TextInput
+                            style={[styles.input, { height: 100 }]}
+                            multiline
+                            numberOfLines={4}
+                            value={remarks}
+                            onChangeText={setRemarks}
+                            placeholder="Any additional remarks..."
+                        />
+
+                        {location && (
                             <Text style={styles.helperText}>
-                                Provide a direct action only. Do not mention persons or offices. Use the comment section for extra info.
+                                Coordinates: {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
                             </Text>
-                        </>
-                    )}
-
-                    <Text style={styles.label}>Other Comment/Remarks</Text>
-                    <TextInput
-                        style={[styles.input, { height: 100 }]}
-                        multiline
-                        numberOfLines={4}
-                        value={remarks}
-                        onChangeText={setRemarks}
-                        placeholder="Any additional remarks..."
-                    />
-
-                    {location && (
-                        <Text style={styles.helperText}>
-                            Coordinates: {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
-                        </Text>
-                    )}
-                </ScrollView>
+                        )}
+                    </>}
+                />
             </KeyboardAvoidingView>
 
             <TouchableOpacity
@@ -288,24 +276,24 @@ export default function ScanQRDetailsScreen({ route }) {
                 onPress={handleSubmit}
                 disabled={loading}
             >
-                {loading ? (
-                    <ActivityIndicator color="#fff" />
-                ) : (
-                    <Text style={styles.submitText}>➤ Submit</Text>
-                )}
+                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>➤ Submit</Text>}
             </TouchableOpacity>
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
+    centered: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     suggestionItem: {
         padding: 10,
         borderBottomColor: '#eee',
         borderBottomWidth: 1,
         backgroundColor: '#fff',
     },
-
     formWrapper: {
         padding: 16,
         paddingBottom: 100,
@@ -317,30 +305,31 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         justifyContent: 'space-between',
-        marginBottom: 20,
+        marginBottom: 10,
     },
     radio: {
         paddingVertical: 10,
         paddingHorizontal: 16,
         borderWidth: 1,
-        borderRadius: 20,
-        borderColor: '#ccc',
+        borderRadius: 8,
         marginBottom: 10,
+        borderColor: theme.colors.light.card,
+        backgroundColor: theme.colors.light.card,
     },
     radioSelected: {
         paddingVertical: 10,
         paddingHorizontal: 16,
         borderWidth: 1,
-        borderRadius: 20,
-        borderColor: theme.colors.light.success,
-        backgroundColor: '#E8F5E9',
+        borderRadius: 8,
+        borderColor: theme.colors.light.primary,
+        backgroundColor: theme.colors.light.primary,
         marginBottom: 10,
     },
     radioText: {
         color: '#444',
     },
     radioTextSelected: {
-        color: theme.colors.light.success,
+        color: theme.colors.light.card,
         fontWeight: 'bold',
     },
     label: {

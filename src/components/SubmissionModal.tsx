@@ -20,24 +20,9 @@ export const SubmissionModal = ({
                     <TouchableOpacity style={styles.optionBtn} onPress={onFileSelect} disabled={uploading}>
                         <Icon name="document-text-outline" size={20} color="#333" />
                         <Text style={styles.optionText}>
-                            {uploading ? 'Uploading...' : 'Upload PDF or Image (max 10MB)'}
+                            {uploading ? 'Uploading...' : 'Upload PDF (max 10MB)'}
                         </Text>
                     </TouchableOpacity>
-
-                    <View style={{ marginTop: 20 }}>
-                        <Text style={styles.linkLabel}>Or submit a link:</Text>
-                        <TextInput
-                            placeholder="https://example.com"
-                            value={link}
-                            onChangeText={setLink}
-                            style={styles.input}
-                            autoCapitalize="none"
-                        />
-                        <TouchableOpacity style={styles.submitBtn} onPress={onSubmitLink}>
-                            <Text style={styles.submitBtnText}>Submit Link</Text>
-                        </TouchableOpacity>
-                    </View>
-
                     <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
                         <Text style={styles.cancelText}>Cancel</Text>
                     </TouchableOpacity>
