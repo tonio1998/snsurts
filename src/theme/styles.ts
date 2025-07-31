@@ -6,6 +6,17 @@ let WhiteColor = '#fff';
 let FontFamily = 'Poppins';
 let PrimaryColorHex = theme.colors.light.primary;
 export const globalStyles = StyleSheet.create({
+    pickerWrapper: {
+        borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 10,
+        marginBottom: 10,
+        backgroundColor: '#fff',
+    },
+    picker: {
+        height: 40,
+        width: '100%',
+    },
     fab: {
         position: 'absolute',
         right: 20,

@@ -29,8 +29,10 @@ import NetInfo from "@react-native-community/netinfo";
 import SigninForm from "./src/Shared/Auth/SigninForm.tsx";
 import LoginOptionsScreen from "./src/Shared/Auth/LoginOptionsScreen.tsx";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
-import ScanQRDetailsScreen from "./src/screens/Scanner/ScanQRDetailsScreen.tsx";
 import UserProfileScreen from "./src/Shared/User/UserProfileScreen.tsx";
+import TrackingBottomTabNav from "./src/navigation/TrackingBottomTabNav.tsx";
+import AddRecordScreen from "./src/screens/Records/AddRecordScreen.tsx";
+import ScannerValidator from './src/screens/Scanner/ScannerValidator.tsx';
 const Stack = createNativeStackNavigator();
 LogBox.ignoreLogs(['Text strings must be rendered within a <Text> component']);
 
@@ -131,7 +133,9 @@ const AppNavigator = () => {
                     <NavigationContainer ref={navigationRef} onReady={tryFlushPendingNavigation}>
                         <Stack.Navigator screenOptions={{ headerShown: false }}>
                             <Stack.Screen name="MainTabs" component={BottomTabNav} />
-                            <Stack.Screen name="ScanQRDetails" component={ScanQRDetailsScreen} />
+                            <Stack.Screen name="ScanQRDetails" component={TrackingBottomTabNav} />
+                            <Stack.Screen name="AddRecord" component={AddRecordScreen} />
+                            <Stack.Screen name="ScannerValidator" component={ScannerValidator} />
                             <Stack.Screen name="Profile" component={UserProfileScreen} />
                         </Stack.Navigator>
                     </NavigationContainer>

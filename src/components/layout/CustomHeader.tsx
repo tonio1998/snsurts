@@ -92,7 +92,7 @@ const CustomHeader = ({ title = '', leftContent = null, rightContent = null }) =
             <View style={styles.header}>
                 <View style={styles.left}>
                     <CText
-                        fontSize={30}
+                        fontSize={40}
                         fontStyle="SB"
                         style={[
                             styles.appName,
