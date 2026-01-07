@@ -46,12 +46,10 @@ export const TrackingProvider = ({ children, qr_code }) => {
     useEffect(() => {
         const fetchLogs = async () => {
             if (!network?.isOnline) return;
-            console.log("qr_codesssssss: ", qr_code);
             try {
                 setLoading(true);
                 const response = await addToLogs(qr_code);
                 if (!response) return;
-
 
                 await storeRecentScan(qr_code)
 

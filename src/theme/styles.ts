@@ -219,6 +219,10 @@ export const globalStyles = StyleSheet.create({
         fontSize: theme.fontSizes.lg,
         color: '#000'
     },
+
+    whiteText: {
+        color: '#fff'
+    },
     
     googleBtn: {
         flexDirection: 'row',

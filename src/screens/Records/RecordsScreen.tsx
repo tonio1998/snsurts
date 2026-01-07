@@ -4,273 +4,372 @@ import {
     StyleSheet,
     TouchableOpacity,
     View,
-    Text, FlatList, RefreshControl,
+    Text,
+    FlatList,
+    RefreshControl,
+    Platform,
+    ActivityIndicator,
 } from "react-native";
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { globalStyles } from "../../theme/styles.ts";
-import CustomHeader from "../../components/layout/CustomHeader.tsx";
-import { getRecords } from "../../api/modules/logsApi.ts";
-import { ShimmerList } from "../../components/loaders/ShimmerList.tsx";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Icon from "react-native-vector-icons/Ionicons";
+import DateTimePicker from "@react-native-community/datetimepicker";
+
+import { globalStyles } from "../../theme/styles";
+import CustomHomeHeader from "../../components/layout/CustomHomeHeader";
 import { theme } from "../../theme";
-import { CText } from "../../components/common/CText.tsx";
+import { CText } from "../../components/common/CText";
 import { formatDate } from "../../utils/dateFormatter";
-import CButton from "../../components/buttons/CButton.tsx";
-import { handleApiError } from "../../utils/errorHandler.ts";
-import { useAuth } from "../../context/AuthContext.tsx";
+import { useCachedList } from "../../utils/cache/useCachedList";
+import { useFiscalYear } from "../../context/FiscalYearContext";
+import { getRecords } from "../../api/modules/logsApi";
+import IosBottomSheet from "../../components/modals/IosBottomSheet";
 
 export default function RecordsScreen({ navigation }) {
-    const { user } = useAuth();
-    const [refreshing, setRefreshing] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [records, setRecords] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [page, setPage] = useState(1);
-    const [hasMore, setHasMore] = useState(true);
-    const debounceTimeout = useRef(null);
+    const { fiscalYear } = useFiscalYear();
 
-    const fetch = async (pageNumber = 1, filters = {}) => {
-        setLoading(true);
-        try {
-            const filter = {
-                page: pageNumber,
-                ...(filters.search !== undefined
-                    ? { search: filters.search }
-                    : searchQuery
-                        ? { search: searchQuery }
-                        : {}),
-            };
+    const [search, setSearch] = useState("");
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [linkedFilter, setLinkedFilter] = useState<null | boolean>(null);
+    const [fromDate, setFromDate] = useState<Date | null>(null);
+    const [toDate, setToDate] = useState<Date | null>(null);
+    const [dateType, setDateType] = useState<"from" | "to" | null>(null);
 
-            const res = await getRecords(filter);
-            const List = res.data ?? [];
-            const totalPages = res?.last_page ?? 1;
-
-            setRecords(prev => (pageNumber === 1 ? List : [...prev, ...List]));
-            setPage(pageNumber);
-            setHasMore(pageNumber < totalPages);
-        } catch (err) {
-            console.error("🔥 Failed to fetch records:", err);
-            handleApiError(err);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const {
+        fullData,
+        visibleCount,
+        loadMore,
+        hasMore,
+        loading,
+        refreshing,
+        refresh,
+        lastFetchedAt,
+    } = useCachedList({
+        cacheKey: "records_cache",
+        fiscalYear,
+        fetchFn: getRecords,
+    });
 
     useEffect(() => {
-        fetch(1);
-    }, []);
+        setSearch("");
+        setLinkedFilter(null);
+        setFromDate(null);
+        setToDate(null);
+    }, [fiscalYear]);
 
-    const handleRefresh = async () => {
-        setRefreshing(true);
-        await fetch(1);
-        setRefreshing(false);
-    };
+    const filteredRecords = useMemo(() => {
+        let data = [...fullData];
 
-    const handleSearchTextChange = (text) => {
-        setSearchQuery(text);
-        if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-        debounceTimeout.current = setTimeout(() => {
-            fetch(1, { search: text });
-        }, 500);
-    };
-
-    const handleClearSearch = () => {
-        setSearchQuery('');
-        fetch(1);
-    };
-
-    const handleLoadMore = () => {
-        if (hasMore && !loading) {
-            fetch(page + 1);
+        if (search.trim()) {
+            const k = search.toLowerCase();
+            data = data.filter(item =>
+                item.Description?.toLowerCase().includes(k) ||
+                item.QRCODE?.toLowerCase().includes(k) ||
+                item.ConnectQR?.toLowerCase().includes(k)
+            );
         }
-    };
 
-    const renderItem = useCallback(({ item }) => {
-        const qr_code = item.QRCODE;
-        const connectedQR = item.ConnectQR;
-        return (
-            <TouchableOpacity
-                style={styles.card}
-                activeOpacity={0.7}
-                onPress={() => navigation.navigate('ScanQRDetails', { qr_code })}
-            >
-                <CText fontStyle="SB" fontSize={14} style={styles.courseText} numberOfLines={2}>
-                    {item.Description}
+        if (linkedFilter !== null) {
+            data = data.filter(item =>
+                linkedFilter
+                    ? item.ConnectQR && item.ConnectQR !== "0"
+                    : !item.ConnectQR || item.ConnectQR === "0"
+            );
+        }
+
+        if (fromDate) {
+            data = data.filter(
+                item => new Date(item.created_at) >= fromDate
+            );
+        }
+
+        if (toDate) {
+            data = data.filter(
+                item => new Date(item.created_at) <= toDate
+            );
+        }
+
+        return data;
+    }, [fullData, search, linkedFilter, fromDate, toDate]);
+
+    const visibleRecords = useMemo(() => {
+        return filteredRecords.slice(0, visibleCount);
+    }, [filteredRecords, visibleCount]);
+
+    const renderItem = useCallback(({ item }) => (
+        <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.card}
+            onPress={() =>
+                navigation.navigate("ScanQRDetails", {
+                    qr_code: item.QRCODE,
+                })
+            }
+        >
+            <CText fontStyle="SB" style={styles.title}>
+                {item.Description}
+            </CText>
+
+            <CText style={styles.qr}>
+                QR: {item.QRCODE}
+            </CText>
+
+            <View style={styles.footer}>
+                <CText style={styles.date}>
+                    {formatDate(item.created_at)}
                 </CText>
-                <CText fontStyle="SB" fontSize={15} style={styles.sectionText}>
-                    {item.QRCODE}
-                </CText>
 
-                <View style={styles.metaInfo}>
-                    {item.location && (
-                        <View>
-                            <CText fontSize={12} style={styles.label}>Location</CText>
-                            <CText fontSize={12} fontStyle="SB" style={[styles.value, {width: 200}]} numberOfLines={1}>
-                                {item.location.UnitName}
-                            </CText>
-                        </View>
-                    )}
-                    {item.courier && (
-                        <View>
-                            <CText fontSize={12} style={styles.label}>Courier</CText>
-                            <CText fontSize={12} fontStyle="SB" style={styles.value}>
-                                {item.courier.name}
-                            </CText>
-                        </View>
-                    )}
-                </View>
-
-                <View style={styles.metaBottom}>
-                    <CText fontSize={12} style={styles.dateText}>
-                        Created: {formatDate(item?.created_at, 'relative')}
-                    </CText>
-
-                    {connectedQR && connectedQR !== '0' && (
-                        <CButton
-                            title={connectedQR}
-                            type="success"
-                            icon="qr-code"
-                            style={{ borderRadius: 8, padding: 5 }}
-                            onPress={() => navigation.navigate('ScanQRDetails', { qr_code: connectedQR })}
-                        />
-                    )}
-                </View>
-            </TouchableOpacity>
-        );
-    }, [navigation]);
+                {item.ConnectQR && item.ConnectQR !== "0" && (
+                    <View style={styles.badge}>
+                        <Icon name="link" size={12} color="#fff" />
+                        <Text style={styles.badgeText}>Linked</Text>
+                    </View>
+                )}
+            </View>
+        </TouchableOpacity>
+    ), [navigation]);
 
     return (
         <SafeAreaView style={globalStyles.safeArea}>
-            <CustomHeader />
+            <CustomHomeHeader />
+
             <View style={styles.container}>
-                <View style={styles.searchWrapper}>
+                <View style={styles.searchBox}>
+                    <Icon name="search" size={18} color="#8E8E93" />
                     <TextInput
+                        value={search}
+                        onChangeText={setSearch}
+                        placeholder="Search records"
                         style={styles.searchInput}
-                        placeholder="Search records..."
-                        placeholderTextColor="#666"
-                        value={searchQuery}
-                        onChangeText={handleSearchTextChange}
-                        returnKeyType="search"
+                        placeholderTextColor="#8E8E93"
                     />
-                    {searchQuery && (
-                        <TouchableOpacity onPress={handleClearSearch} style={styles.clearBtn}>
-                            <Icon name="close-circle" size={22} color="#666" />
-                        </TouchableOpacity>
-                    )}
+                    <TouchableOpacity onPress={() => setShowAdvanced(true)}>
+                        <Icon name="options-outline" size={20} color="#8E8E93" />
+                    </TouchableOpacity>
                 </View>
 
-                <FlatList
-                    data={records}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={renderItem}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-                    onEndReachedThreshold={0.5}
-                    onEndReached={handleLoadMore}
-                    ListEmptyComponent={
-                        !loading && (
-                            <View style={{ paddingVertical: 30 }}>
-                                <Text style={styles.emptyText}>No records found.</Text>
-                            </View>
-                        )
-                    }
-                />
+                {lastFetchedAt && (
+                    <CText style={styles.lastUpdated}>
+                        Last updated: {formatDate(lastFetchedAt)}
+                    </CText>
+                )}
+
+                {loading && fullData.length === 0 ? (
+                    <View style={styles.initialLoader}>
+                        <ActivityIndicator size="large" color={theme.colors.light.primary} />
+                    </View>
+                ) : (
+                    <FlatList
+                        data={visibleRecords}
+                        keyExtractor={item => item.id.toString()}
+                        renderItem={renderItem}
+                        contentContainerStyle={{ paddingBottom: 120 }}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={refresh}
+                            />
+                        }
+                        onEndReached={() => {
+                            if (hasMore && !loading) {
+                                loadMore();
+                            }
+                        }}
+                        onEndReachedThreshold={0.3}
+                        ListEmptyComponent={
+                            !loading && (
+                                <View style={styles.empty}>
+                                    <Icon
+                                        name="document-text-outline"
+                                        size={42}
+                                        color="#ccc"
+                                    />
+                                    <Text style={styles.emptyText}>
+                                        No records found
+                                    </Text>
+                                </View>
+                            )
+                        }
+                    />
+                )}
             </View>
 
-            <View style={styles.fab}>
-                <TouchableOpacity activeOpacity={0.7} onPress={() => navigation.navigate('AddRecord')}>
-                    <Icon name="add" size={28} color="#fff" />
-                </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+                style={styles.fab}
+                onPress={() => navigation.navigate("AddRecord")}
+            >
+                <Icon name="add" size={26} color="#fff" />
+            </TouchableOpacity>
+
+            <IosBottomSheet
+                visible={showAdvanced}
+                title="Filter Records"
+                onClose={() => setShowAdvanced(false)}
+            >
+                <CText style={styles.sectionLabel}>Linked QR</CText>
+
+                <View style={styles.segment}>
+                    {[{ label: "All", value: null }, { label: "Linked", value: true }, { label: "Unlinked", value: false }].map(opt => (
+                        <TouchableOpacity
+                            key={String(opt.value)}
+                            style={[
+                                styles.segmentItem,
+                                linkedFilter === opt.value && styles.segmentActive,
+                            ]}
+                            onPress={() => setLinkedFilter(opt.value)}
+                        >
+                            <CText>{opt.label}</CText>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+
+                <CText style={styles.sectionLabel}>Date Range</CText>
+
+                <View style={styles.dateRow}>
+                    <TouchableOpacity
+                        style={styles.dateBox}
+                        onPress={() => setDateType("from")}
+                    >
+                        <CText>
+                            {fromDate ? formatDate(fromDate, 'date') : "From"}
+                        </CText>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.dateBox}
+                        onPress={() => setDateType("to")}
+                    >
+                        <CText>
+                            {toDate ? formatDate(toDate, 'date') : "To"}
+                        </CText>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.actionRow}>
+                    <TouchableOpacity
+                        style={styles.resetBtn}
+                        onPress={() => {
+                            setLinkedFilter(null);
+                            setFromDate(null);
+                            setToDate(null);
+                        }}
+                    >
+                        <CText>Reset</CText>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.applyBtn}
+                        onPress={() => setShowAdvanced(false)}
+                    >
+                        <CText style={{ color: "#fff" }}>Apply</CText>
+                    </TouchableOpacity>
+                </View>
+            </IosBottomSheet>
+
+            {dateType && (
+                <DateTimePicker
+                    value={new Date()}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={(_, date) => {
+                        if (dateType === "from") setFromDate(date || null);
+                        if (dateType === "to") setToDate(date || null);
+                        setDateType(null);
+                    }}
+                />
+            )}
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    fab: {
-        position: 'absolute',
-        right: 18,
-        bottom: 20,
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: theme.colors.light.primary,
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 3,
-        zIndex: 999,
+    container: { flex: 1, paddingHorizontal: 14, paddingTop: 10 },
+    searchBox: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: theme.colors.light.card,
+        borderRadius: 14,
+        paddingHorizontal: 14,
+        height: 46,
+        marginBottom: 14,
     },
-    container: {
-        flex: 1,
-        paddingHorizontal: 16,
-        paddingTop: 10,
-    },
-    searchWrapper: {
-        position: 'relative',
-        marginBottom: 15,
-    },
-    searchInput: {
-        backgroundColor: '#fff',
-        borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 10,
-        paddingVertical: 12,
-        paddingHorizontal: 18,
-        fontSize: 16,
-        color: '#000',
-    },
-    clearBtn: {
-        position: 'absolute',
-        right: 15,
-        top: '50%',
-        transform: [{ translateY: -11 }],
-    },
+    searchInput: { flex: 1, marginHorizontal: 10, fontSize: 15, color: "#000" },
     card: {
         backgroundColor: theme.colors.light.card,
-        borderRadius: 12,
+        borderRadius: 16,
         padding: 16,
-        marginBottom: 14,
-        borderWidth: 1,
-        borderColor: theme.colors.light.primary + '22',
-        shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        shadowOffset: { width: 0, height: 2 },
+        marginBottom: 12,
     },
-    courseText: {
-        textTransform: 'uppercase',
+    title: { fontSize: 15, marginBottom: 4 },
+    qr: { fontSize: 12, color: "#666" },
+    footer: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginTop: 12,
     },
-    sectionText: {
-        textTransform: 'uppercase',
-        marginTop: 3,
+    date: { fontSize: 11, color: "#999" },
+    badge: {
+        flexDirection: "row",
+        backgroundColor: theme.colors.light.primary,
+        borderRadius: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        alignItems: "center",
+        gap: 4,
     },
-    metaInfo: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 8,
+    badgeText: { color: "#fff", fontSize: 11 },
+    fab: {
+        position: "absolute",
+        right: 18,
+        bottom: 18,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: theme.colors.light.primary,
+        justifyContent: "center",
+        alignItems: "center",
+        elevation: 6,
     },
-    label: {
-        color: '#777',
+    empty: { alignItems: "center", marginTop: 60 },
+    emptyText: { marginTop: 10, color: "#999" },
+    initialLoader: { flex: 1, justifyContent: "center", alignItems: "center" },
+    sectionLabel: { fontSize: 13, color: "#888", marginBottom: 8 },
+    segment: {
+        flexDirection: "row",
+        backgroundColor: "#F2F2F7",
+        borderRadius: 12,
+        padding: 4,
+        marginBottom: 20,
     },
-    value: {
-        color: '#333',
+    segmentItem: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center" },
+    segmentActive: { backgroundColor: "#fff", elevation: 2 },
+    dateRow: { flexDirection: "row", gap: 12, marginBottom: 24 },
+    dateBox: {
+        flex: 1,
+        backgroundColor: "#F2F2F7",
+        borderRadius: 12,
+        paddingVertical: 14,
+        alignItems: "center",
     },
-    metaBottom: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 10,
+    actionRow: { flexDirection: "row", gap: 12 },
+    resetBtn: {
+        flex: 1,
+        paddingVertical: 14,
+        borderRadius: 14,
+        backgroundColor: "#F2F2F7",
+        alignItems: "center",
     },
-    dateText: {
-        color: '#777',
-        fontSize: 12,
+    applyBtn: {
+        flex: 1,
+        paddingVertical: 14,
+        borderRadius: 14,
+        backgroundColor: theme.colors.light.primary,
+        alignItems: "center",
     },
-    emptyText: {
-        textAlign: 'center',
-        color: '#888',
-        fontSize: 16,
+    lastUpdated: {
+        fontSize: 11,
+        color: "#8E8E93",
+        marginBottom: 8,
+        marginLeft: 4,
     },
 });

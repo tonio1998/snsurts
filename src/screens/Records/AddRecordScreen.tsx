@@ -14,50 +14,58 @@ import {
 } from "react-native";
 import { CText } from "../../components/common/CText";
 import { theme } from "../../theme";
-import CButton from "../../components/buttons/CButton";
 import BackHeader from "../../components/layout/BackHeader.tsx";
 import { globalStyles } from "../../theme/styles.ts";
 import Icon from "react-native-vector-icons/Ionicons";
 import SmartSelectPicker from "../../components/pickers/SmartSelectPicker.tsx";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Picker } from "@react-native-picker/picker";
-import { addRecord } from "../../api/modules/logsApi.ts";
+import {addRecord, updateRecord} from "../../api/modules/logsApi.ts";
 import { handleApiError } from "../../utils/errorHandler.ts";
+import {useAlert} from "../../components/CAlert.tsx";
 
 export default function AddDocumentScreen({ route, navigation }) {
     const info = route?.params?.info ?? null;
 
     const [loading, setLoading] = useState(false);
-    const [type, setType] = useState(info?.type ?? "1");
+    const { showAlert } = useAlert();
+
+    const [type, setType] = useState(info?.type?.toString() ?? "1");
     const [connectQR, setConnectQR] = useState(info?.connectQR ?? "");
     const [TransactBy, setTransactBy] = useState(info?.TransactBy?.toString() ?? "1");
-    const [AssetUnitID, setAssetUnitID] = useState(info?.AssetUnitID ?? "");
+    const [AssetUnitID, setAssetUnitID] = useState(info?.UnitID ?? "");
     const [Origin, setOrigin] = useState(info?.Origin ?? "");
-    const [DateTimeReceived, setDateTimeReceived] = useState(info?.DateTimeReceived ? new Date(info?.DateTimeReceived) : null);
+    const [DateTimeReceived, setDateTimeReceived] = useState(
+        info?.DateTimeReceived ? new Date(info.DateTimeReceived) : null
+    );
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
     const [TransactionType, setTransactionType] = useState(info?.TransactionType ?? "");
     const [Priority, setPriority] = useState(info?.Priority?.toString() ?? "1");
     const [Description, setDescription] = useState(info?.Description ?? "");
     const [remark, setRemark] = useState(info?.remark ?? "");
-    const [errors, setErrors] = useState({});
 
     const isExternal = type === "0";
     const isUnit = TransactBy === "1";
 
-    const handleDateChange = (event, selectedDate) => {
-        if (selectedDate) {
-            const updated = new Date(DateTimeReceived || new Date());
-            updated.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
-            setDateTimeReceived(updated);
+    const handleDateChange = (_, selectedDate) => {
+        if (!selectedDate) {
             setShowDatePicker(false);
-            setShowTimePicker(true);
-        } else {
-            setShowDatePicker(false);
+            return;
         }
+
+        const updated = new Date(DateTimeReceived || new Date());
+        updated.setFullYear(
+            selectedDate.getFullYear(),
+            selectedDate.getMonth(),
+            selectedDate.getDate()
+        );
+
+        setDateTimeReceived(updated);
+        setShowDatePicker(false);
+        setShowTimePicker(true);
     };
 
-    const handleTimeChange = (event, selectedTime) => {
+    const handleTimeChange = (_, selectedTime) => {
         if (selectedTime) {
             const updated = new Date(DateTimeReceived || new Date());
             updated.setHours(selectedTime.getHours());
@@ -68,16 +76,17 @@ export default function AddDocumentScreen({ route, navigation }) {
     };
 
     const handleSubmit = async () => {
-        const errors = [];
-        if (!type) errors.push("Please select a document type.");
-        if (!Description?.trim()) errors.push("Please provide a description.");
-        if (type === "0" && !DateTimeReceived) errors.push("Please provide a date and time.");
-        if (type === "0" && !TransactionType) errors.push("Please select a transaction type.");
-        if (type === "0" && !Priority?.trim()) errors.push("Please select a priority.");
-        if (!TransactBy) errors.push("Please select a transactor.");
-        if (TransactBy === "1" && !AssetUnitID) errors.push("Please select a unit.");
+        const errors: string[] = [];
 
-        if (errors.length > 0) {
+        if (!type) errors.push("Please select a document type.");
+        if (!Description.trim()) errors.push("Please provide a description.");
+        if (isExternal && !DateTimeReceived) errors.push("Please provide a date and time.");
+        if (isExternal && !TransactionType) errors.push("Please select a transaction type.");
+        if (isExternal && !Priority) errors.push("Please select a priority.");
+        if (!TransactBy) errors.push("Please select a transactor.");
+        if (isUnit && !AssetUnitID) errors.push("Please select a unit.");
+
+        if (errors.length) {
             Alert.alert(errors.join("\n"));
             return;
         }
@@ -95,199 +104,202 @@ export default function AddDocumentScreen({ route, navigation }) {
             remark,
         };
 
-        console.log("Submit:", formData);
         try {
             setLoading(true);
-            const response = await addRecord(formData);
-            console.log("response:", response);
-            if(response.data){
-                navigation.navigate('ScanQRDetails', {qr_code:response.data.QRCODE});
+
+            let response;
+
+            if (info?.id) {
+                response = await updateRecord(info.id, formData);
+            } else {
+                response = await addRecord(formData);
             }
-        } catch (error) {
-            handleApiError(error, "Failed to submit document");
+
+            if(info?.id){
+                navigation.goBack();
+            }else{
+                navigation.navigate("ScanQRDetails", {
+                    qr_code: response.data.QRCODE,
+                });
+            }
+        } catch (e) {
+            const message =
+                e?.response?.data?.message ||
+                e?.message ||
+                'Something went wrong during Google login.';
+
+            showAlert('error', 'Error', message);
+            handleApiError(e, "Failed to submit document");
         } finally {
             setLoading(false);
         }
     };
 
+
     const handleScanQR = () => {
-        navigation.navigate('ScannerValidator', {
-            onScanComplete: (scannedQR) => {
-                setConnectQR(scannedQR);
-            }
+        navigation.navigate("ScannerValidator", {
+            onScanComplete: (qr) => setConnectQR(qr),
         });
     };
 
     return (
         <SafeAreaView style={globalStyles.safeArea}>
             <BackHeader title={info ? "Update Document" : "New Document"} />
-            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
-            <ScrollView
-                contentContainerStyle={styles.container}
-                keyboardShouldPersistTaps="handled"
-                nestedScrollEnabled={true}
+
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
             >
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <TextInput
-                        style={[styles.input, { flex: 1 }]}
-                        placeholder="Input Old QR to connect"
-                        value={connectQR}
-                        onChangeText={setConnectQR}
-                        placeholderTextColor="#999"
-                        keyboardType="numeric"
-                    />
-                    <TouchableOpacity
-                        onPress={handleScanQR}
-                        style={{
-                            marginLeft: 10,
-                            padding: 8,
-                            backgroundColor: "#fff",
-                            borderRadius: 10,
-                            borderWidth: 1,
-                            borderColor: theme.colors.light.primary,
-                            transform: [{ translateY: -5 }],
-                        }}
-                    >
-                        <Icon name="qr-code" size={24} color={theme.colors.light.primary} />
-                    </TouchableOpacity>
-                </View>
-
-                <CText style={styles.label}>Document Origin</CText>
-                <View style={styles.radioRow}>
-                    <RadioBtn label="Internal" value="1" selected={type} onSelect={setType} />
-                    <RadioBtn label="External" value="0" selected={type} onSelect={setType} />
-                </View>
-
-                <CText style={styles.label}>Submit As</CText>
-                <View style={styles.radioRow}>
-                    <RadioBtn label="Personal" value="0" selected={TransactBy} onSelect={setTransactBy} />
-                    <RadioBtn label="Unit" value="1" selected={TransactBy} onSelect={setTransactBy} />
-                </View>
-
-                {isUnit && (
-                    <>
-                        <CText style={styles.label}>Tracking Unit</CText>
-                        <SmartSelectPicker
-                            value={AssetUnitID}
-                            onValueChange={setAssetUnitID}
-                            apiUrl="/rts/user/assignment"
-                            labelKey="unit.UnitName"
-                            valueKey="unit.UnitID"
-                            placeholder="Select Unit"
-                        />
-                    </>
-                )}
-
-                {isExternal && (
-                    <View style={styles.section}>
-                        <CText style={styles.sectionHeader}>External Document Details</CText>
-
-                        <CText style={styles.label}>Origin</CText>
+                <ScrollView
+                    contentContainerStyle={styles.container}
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled
+                >
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
                         <TextInput
-                            style={styles.input}
-                            placeholder="XYZ Company"
-                            value={Origin}
-                            onChangeText={setOrigin}
+                            style={[styles.input, { flex: 1 }]}
+                            placeholder="Input Old QR to connect"
+                            value={connectQR}
+                            onChangeText={setConnectQR}
+                            keyboardType="numeric"
+                            placeholderTextColor="#9CA3AF"
                         />
+                        <TouchableOpacity
+                            onPress={handleScanQR}
+                            style={{
+                                marginLeft: 10,
+                                padding: 8,
+                                backgroundColor: "#fff",
+                                borderRadius: 10,
+                                borderWidth: 1,
+                                borderColor: theme.colors.light.primary,
+                                transform: [{ translateY: -5 }],
+                            }}
+                        >
+                            <Icon name="qr-code" size={24} color={theme.colors.light.primary} />
+                        </TouchableOpacity>
+                    </View>
 
-                        <CText style={styles.label}>Date & Time Received</CText>
-                        {DateTimeReceived ? (
-                            <View style={{ flexDirection: "row", alignItems: "center" }}>
-                                <TouchableOpacity style={[styles.input, { flex: 1 }]} onPress={() => setShowDatePicker(true)}>
-                                    <CText fontSize={15}>{DateTimeReceived.toLocaleString()}</CText>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={() => setDateTimeReceived(null)}
-                                    style={{
-                                        marginLeft: 10,
-                                        padding: 10,
-                                        backgroundColor: "#eee",
-                                        borderRadius: 8,
-                                    }}
-                                >
-                                    <CText fontSize={14} fontStyle="SB" style={{ color: "#555" }}>
-                                        Clear
-                                    </CText>
-                                </TouchableOpacity>
-                            </View>
-                        ) : (
+                    <CText style={styles.label}>Document Origin</CText>
+                    <View style={styles.radioRow}>
+                        <RadioBtn label="Internal" value="1" selected={type} onSelect={setType} />
+                        <RadioBtn label="External" value="0" selected={type} onSelect={setType} />
+                    </View>
+
+                    <CText style={styles.label}>Submit As</CText>
+                    <View style={styles.radioRow}>
+                        <RadioBtn label="Personal" value="0" selected={TransactBy} onSelect={setTransactBy} />
+                        <RadioBtn label="Unit" value="1" selected={TransactBy} onSelect={setTransactBy} />
+                    </View>
+
+                    {isUnit && (
+                        <>
+                            <CText style={styles.label}>Tracking Unit</CText>
+                            <SmartSelectPicker
+                                key={AssetUnitID}
+                                value={AssetUnitID}
+                                onValueChange={(val) => setAssetUnitID(String(val))}
+                                apiUrl="/rts/user/assignment"
+                                labelKey="unit.UnitName"
+                                valueKey="unit.UnitID"
+                                placeholder="Select Unit"
+                            />
+
+                        </>
+                    )}
+
+                    {isExternal && (
+                        <View style={styles.section}>
+                            <CText style={styles.sectionHeader}>External Document Details</CText>
+
+                            <CText style={styles.label}>Origin</CText>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="XYZ Company"
+                                placeholderTextColor="#9CA3AF"
+                                value={Origin}
+                                onChangeText={setOrigin}
+                            />
+
+                            <CText style={styles.label}>Date & Time Received</CText>
                             <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
-                                <CText fontSize={15} style={{ color: "#999" }}>
-                                    Set Date & Time
+                                <CText>
+                                    {DateTimeReceived
+                                        ? DateTimeReceived.toLocaleString()
+                                        : "Set Date & Time"}
                                 </CText>
                             </TouchableOpacity>
-                        )}
 
-                        {showDatePicker && (
-                            <DateTimePicker
-                                value={DateTimeReceived || new Date()}
-                                mode="date"
-                                display={Platform.OS === "ios" ? "spinner" : "default"}
-                                onChange={handleDateChange}
-                                maximumDate={new Date()}
-                            />
-                        )}
+                            {showDatePicker && (
+                                <DateTimePicker
+                                    value={DateTimeReceived || new Date()}
+                                    mode="date"
+                                    onChange={handleDateChange}
+                                />
+                            )}
 
-                        {showTimePicker && (
-                            <DateTimePicker
-                                value={DateTimeReceived || new Date()}
-                                mode="time"
-                                display={Platform.OS === "ios" ? "spinner" : "default"}
-                                onChange={handleTimeChange}
-                            />
-                        )}
+                            {showTimePicker && (
+                                <DateTimePicker
+                                    value={DateTimeReceived || new Date()}
+                                    mode="time"
+                                    onChange={handleTimeChange}
+                                />
+                            )}
 
-                        <CText style={styles.label}>Transaction Type</CText>
-                        <View style={{ zIndex: 9999, position: 'relative' }}>
+                            <CText style={styles.label}>Transaction Type</CText>
                             <SmartSelectPicker
                                 value={TransactionType}
                                 onValueChange={setTransactionType}
                                 items={[
-                                    { label: 'Single (3 days)', value: 'Single' },
-                                    { label: 'Complex (7 days)', value: 'Complex' },
-                                    { label: 'Highly Technical (20 days)', value: 'Highly Technical' },
-                                    { label: 'N/A', value: 'N/A' },
+                                    { label: "Single (3 days)", value: "Single" },
+                                    { label: "Complex (7 days)", value: "Complex" },
+                                    { label: "Highly Technical (20 days)", value: "Highly Technical" },
+                                    { label: "N/A", value: "N/A" },
                                 ]}
                                 placeholder="Select Assignment"
                             />
+
+                            <CText style={styles.label}>Priority (1-6)</CText>
+                            <TextInput
+                                style={styles.input}
+                                value={Priority}
+                                onChangeText={setPriority}
+                                keyboardType="numeric"
+                            />
                         </View>
+                    )}
 
-                        <CText style={styles.label}>Priority (1-6)</CText>
-                        <TextInput
-                            style={[styles.input]}
-                            placeholder="1"
-                            value={Priority}
-                            onChangeText={setPriority}
-                            keyboardType="numeric"
-                        />
-                    </View>
-                )}
+                    <CText style={styles.label}>Document Description</CText>
+                    <TextInput
+                        style={[styles.input, { height: 100, textAlignVertical: "top" }]}
+                        value={Description}
+                        onChangeText={setDescription}
+                        multiline
+                    />
 
-                <CText style={styles.label}>Document Description</CText>
-                <TextInput
-                    style={[styles.input, { height: 100, textAlignVertical: "top" }]}
-                    placeholder="Enter description"
-                    value={Description}
-                    onChangeText={setDescription}
-                    multiline
-                />
+                    <CText style={styles.label}>Remark</CText>
+                    <TextInput
+                        style={styles.input}
+                        value={remark}
+                        onChangeText={setRemark}
+                        placeholderTextColor="#9CA3AF"
+                    />
 
-                <CText style={styles.label}>Remark</CText>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Optional remarks"
-                    value={remark}
-                    onChangeText={setRemark}
-                />
-                <TouchableOpacity
-                    style={[styles.submitBtn, loading && { backgroundColor: "#888" }]}
-                    onPress={handleSubmit}
-                    disabled={loading}
-                >
-                    {loading ? <ActivityIndicator color="#fff" /> : <CText fontStyle={'SB'} style={styles.submitText}>Submit</CText>}
-                </TouchableOpacity>
-            </ScrollView>
-        </KeyboardAvoidingView>
+                    <TouchableOpacity
+                        style={[styles.submitBtn, loading && { backgroundColor: "#888" }]}
+                        onPress={handleSubmit}
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <CText fontStyle="SB" style={styles.submitText}>
+                                Submit
+                            </CText>
+                        )}
+                    </TouchableOpacity>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
@@ -307,7 +319,6 @@ const RadioBtn = ({ label, value, selected, onSelect }) => (
 const styles = StyleSheet.create({
     container: {
         padding: 20,
-        // paddingBottom: 80,
         backgroundColor: "#f9f9f9",
     },
     label: {
@@ -345,7 +356,6 @@ const styles = StyleSheet.create({
         fontWeight: "700",
         fontSize: 16,
         marginBottom: 12,
-        color: theme.colors.light.primary,
     },
     input: {
         borderWidth: 1,
@@ -364,10 +374,6 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         alignItems: "center",
         justifyContent: "center",
-        // position: "absolute",
-        // bottom: 20,
-        // left: 20,
-        // right: 20,
         elevation: 3,
     },
     submitText: {

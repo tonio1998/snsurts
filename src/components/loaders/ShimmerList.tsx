@@ -86,7 +86,12 @@ export function ShimmerList<T>({
                 onEndReachedThreshold={0.3}
                 ListFooterComponent={!loading ? ListFooterComponent : null}
                 ListEmptyComponent={!loading ? ListEmptyComponent : null}
-                contentContainerStyle={containerStyle}
+                contentContainerStyle={[
+                    containerStyle,
+                    {
+                        padding: 0,
+                    }
+                ]}
             />
         </>
     );

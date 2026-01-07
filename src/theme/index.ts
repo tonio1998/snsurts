@@ -1,46 +1,141 @@
+// BLUE AND VIOLET
+// primary: '#3E13DA',
+//         primary_soft: '#5314E4',
+//         secondary: '#921BFD',
+//         secondary_soft: '#02801C',
+
+// DARK BLUE AND VIOLET
+// primary: '#3E13DA',
+//         primary_soft: '#5314E4',
+//         secondary: '#921BFD',
+//         secondary_soft: '#02801C',
+
+// SNSU GREEN
+// primary: '#006400',
+//     secondary: '#228B22',
+
+// BLUE
+// primary: '#0951C7',
+//     secondary: '#2366C7',
+
+// primary: '#007848',
+//     primary_dark: '#0a3300',
+//     primary_light: '#ade254',
+//     button: '#005431',
+//     secondary: '#f29c00',
+
+// primary: '#7c40ff',
+//     primary_dark: '#773DFF',
+//     primary_light: '#9A70FF',
+//     button: '#005431',
+//     secondary: '#7209B7',
+
+
+// PURPLE
+// primary: '#7c40ff',
+//     primary_dark: '#773DFF',
+//     primary_light: '#9A70FF',
+//     button: '#7800cf',
+//     secondary: '#7209B7',
 const colors = {
     light: {
-        background: '#FFF',
-        surface: '#E0E8F3',
-        text: '#1C1C1E',
-        inputBackground: '#FFF',
-        border: '#DADADA',
-        primary: '#008001',
-        primary_soft: '#008001',
-        secondary: '#007DFE',
-        secondary_soft: '#DCECC7',
-        success: '#34C759',
-        success_soft: '#C8E6C9',
-        danger: '#FF3B30',
-        danger_soft: '#FFCDD2',
-        warning: '#FCBE02',
-        warning_soft: '#FFF3CD',
-        info: '#5AC8FA',
-        info_soft: '#B3E5FC',
-        muted: '#F8F8F8',
-        muted_soft: '#E0E0E0',
-        card: "#FFF"         // cards should stay clean and pop on soft bg
+        // --- Backgrounds & Surfaces (Retained) ---
+        background: '#EBEDEB',
+        surface: '#F9FAFB',
+        card: '#FFFFFF',
+        muted: '#E5E7EB',
+        muted_soft: '#F1F5F9',
+
+        // --- Text & Borders ---
+        text: '#1A1A1A',
+        text_secondary: '#6B7280',
+        border: '#E5E7EB',
+        inputBackground: '#FFFFFF',
+
+        // --- Brand Colors (Darker Green based on Logo) ---
+        primary: '#228B22',
+        primary_dark: '#0a3300',
+        primary_light: '#ade254',
+        button: '#005431',
+        secondary: '#f29c00',
+
+        // PURPLE
+        // primary: '#7c40ff',
+        // primary_dark: '#773DFF',
+        // primary_light: '#9A70FF',
+        // button: '#7800cf',
+        // secondary: '#7209B7',
+
+        // FOODPANDA PINK
+        // primary: '#D70F64',        // Foodpanda Pink (brand primary)
+        // primary_dark: '#B50D54',   // Darker pink for headers / pressed states
+        // primary_light: '#F06292',  // Softer pink for highlights / backgrounds
+        // button: '#D70F64',         // Strong CTA (same as primary, Foodpanda-style)
+        // secondary: '#8E004D',      // Deep berry for contrast / secondary actions
+        //
+
+        // TEAL GREEN
+        // primary: '#0F766E',        // Teal Green – main brand / trust
+        // primary_dark: '#115E59',   // Headers, app bar
+        // primary_light: '#5EEAD4',  // Cards, highlights
+        // button: '#0F766E',         // Primary actions
+        // secondary: '#1E3A8A',      // Navy Blue – authority / secondary actions
+
+
+
+        // --- Status Colors (Based on Logo/Standard Meanings) ---
+        success: '#22C55E',
+        success_soft: '#DCFCE7',
+
+        danger: '#CC4747',         // 🔥 Red/Orange (Logo Flame)
+        danger_soft: '#FEE2E2',
+
+        warning: '#FACC15',        // 🟡 Bright Gold/Yellow (Logo Rays)
+        warning_soft: '#FEF3C7',
+
+        info: '#3A7BFC',
+        info_soft: '#DBEAFE',
+
+        // --- Accents ---
+        link: '#005431',           // Dark link color
+        highlight: '#FACC15',
     },
+
     dark: {
-        background: '#000000',
-        surface: '#1C1C1C',
-        text: '#FFFFFF',
-        inputBackground: '#222222',
-        border: '#444444',
-        primary: '#4CAF50',
-        secondary: '#FFB74D',
-        success: '#30D158',
-        danger: '#FF453A',
-        warning: '#FF9F0A',
-        info: '#64D2FF',
-        muted: '#888888',
-    },
-    text: {
-        default: '#1C1C1E',
-        muted: '#C5C5C5',
-        placeholder: '#A0A0A0',
-        link: '#0265E1',
-    },
+        // --- Backgrounds & Surfaces ---
+        background: '#121212',
+        surface: '#1E1E1E',
+        card: '#242424',
+        muted: '#3A3A3A',
+        muted_soft: '#2C2C2C',
+
+        // --- Text & Borders ---
+        text: '#F0F0F0',
+        text_secondary: '#B0B0B0',
+        border: '#3A3A3A',
+        inputBackground: '#1E1E1E',
+
+        // --- Brand Colors (Darker Green based on Logo - Adjusted for Dark Mode Contrast) ---
+        primary: '#009756',        // 🟢 Bright enough deep green for contrast
+        primary_dark: '#007A46',
+        primary_light: '#A8F0C6',
+        button: '#007A46',
+        secondary: '#FFEB3B',      // 🌟 Brighter Gold/Yellow
+
+        // --- Status Colors ---
+        success: '#66BB6A',
+        success_soft: '#1B5E20',
+        danger: '#FF6F6F',
+        danger_soft: '#B71C1C',
+        warning: '#FFD740',
+        warning_soft: '#F57F17',
+        info: '#42A5F5',
+        info_soft: '#0D47A1',
+
+        // --- Accents ---
+        link: '#80DEEA',
+        highlight: '#FFD740',
+    }
 };
 
 const spacing = {
@@ -54,6 +149,7 @@ const spacing = {
 };
 
 const fontSizes = {
+    xxs: 8,
     xs: 12,
     sm: 14,
     md: 16,
@@ -71,13 +167,61 @@ const fontSizes = {
 //     italic: 'Poppins-Italic',
 // };
 
+// export const font = {
+//     regular: 'MazzardSoftH-Regular',
+//     medium: 'Poppins-Medium',
+//     semiBold: 'MazzardSoftH-SemiBold',
+//     bold: 'Poppins-Bold',
+//     italic: 'Poppins-Italic',
+// };
+
+// export const font = {
+//     regular: 'Roboto-Regular',
+//     medium: 'Roboto-Medium',
+//     semiBold: 'Roboto-SemiBold',
+//     bold: 'Roboto-Bold',
+//     italic: 'Roboto-Italic',
+//     light: 'Roboto-Light',
+//     thin: 'Roboto-Thin',
+//     black: 'Roboto-Black',
+// };
+
+// export const font = {
+//     regular: 'Montserrat-Regular',
+//     medium: 'Montserrat-Medium',
+//     semiBold: 'Montserrat-SemiBold',
+//     bold: 'Montserrat-Bold',
+//     italic: 'Montserrat-Italic',
+//     light: 'Montserrat-Light',
+//     thin: 'Montserrat-Thin',
+//     black: 'Montserrat-Black',
+// };
 export const font = {
-    regular: 'MazzardSoftH-Regular',
+    thin: 'Inter_28pt-Thin',
+    extraLight: 'Inter_28pt-ExtraLight',
+    light: 'Inter_28pt-Light',
+    regular: 'Inter_28pt-Regular',
+    medium: 'Inter_28pt-Medium',
+    semiBold: 'Inter_28pt-SemiBold',
+    bold: 'Inter_28pt-Bold',
+    extraBold: 'Inter_28pt-ExtraBold',
+    black: 'Inter_28pt-Black',
+};
+
+
+export const fontPoppins = {
+    regular: 'Poppins-Regular',
     medium: 'Poppins-Medium',
-    semiBold: 'MazzardSoftH-SemiBold',
+    semiBold: 'Poppins-SemiBold',
     bold: 'Poppins-Bold',
     italic: 'Poppins-Italic',
+    light: 'Poppins-Light',
+    thin: 'Poppins-Thin',
+    black: 'Poppins-Black',
 };
+
+
+
 export const FontFamily = 'MazzardSoftH-SemiBold';
 export const FontFamilyNormal = 'MazzardSoftH-Regular';
 
@@ -117,8 +261,9 @@ export const theme = {
     spacing,
     fontSizes,
     font,
+    fontPoppins,
     radius,
     elevation,
     opacity, FLOATING_NAV_HEIGHT, PADDING_TOP
-    
+
 };

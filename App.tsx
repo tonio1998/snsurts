@@ -33,12 +33,14 @@ import UserProfileScreen from "./src/Shared/User/UserProfileScreen.tsx";
 import TrackingBottomTabNav from "./src/navigation/TrackingBottomTabNav.tsx";
 import AddRecordScreen from "./src/screens/Records/AddRecordScreen.tsx";
 import ScannerValidator from './src/screens/Scanner/ScannerValidator.tsx';
+import {GestureHandlerRootView} from "react-native-gesture-handler";
+import AcademicYearScreen from "./src/Shared/AcademicYearScreen.tsx";
+import {FiscalYearProvider} from "./src/context/FiscalYearContext.tsx";
 const Stack = createNativeStackNavigator();
 LogBox.ignoreLogs(['Text strings must be rendered within a <Text> component']);
 
 const UnauthenticatedStack = () => (
     <>
-        <StatusBar backgroundColor="translucent" barStyle="dark-content" />
         <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="LoginOptions" component={LoginOptionsScreen} />
             <Stack.Screen name="Login" component={SigninForm} />
@@ -119,26 +121,32 @@ const AppNavigator = () => {
 
     if (!user) {
         return (
-            <NavigationContainer>
-                <UnauthenticatedStack />
-            </NavigationContainer>
+            <>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                    <NavigationContainer>
+                        <UnauthenticatedStack />
+                    </NavigationContainer>
+                </GestureHandlerRootView>
+            </>
         );
     }
 
     return (
         <>
-            <StatusBar backgroundColor={theme.colors.light.primary} barStyle="dark-content" />
             <SafeAreaProvider>
                 <AccessProvider>
-                    <NavigationContainer ref={navigationRef} onReady={tryFlushPendingNavigation}>
-                        <Stack.Navigator screenOptions={{ headerShown: false }}>
-                            <Stack.Screen name="MainTabs" component={BottomTabNav} />
-                            <Stack.Screen name="ScanQRDetails" component={TrackingBottomTabNav} />
-                            <Stack.Screen name="AddRecord" component={AddRecordScreen} />
-                            <Stack.Screen name="ScannerValidator" component={ScannerValidator} />
-                            <Stack.Screen name="Profile" component={UserProfileScreen} />
-                        </Stack.Navigator>
-                    </NavigationContainer>
+                    <GestureHandlerRootView style={{ flex: 1 }}>
+                        <NavigationContainer ref={navigationRef} onReady={tryFlushPendingNavigation}>
+                            <Stack.Navigator screenOptions={{ headerShown: false }}>
+                                <Stack.Screen name="MainTabs" component={BottomTabNav} />
+                                <Stack.Screen name="ScanQRDetails" component={TrackingBottomTabNav} />
+                                <Stack.Screen name="AddRecord" component={AddRecordScreen} />
+                                <Stack.Screen name="ScannerValidator" component={ScannerValidator} />
+                                <Stack.Screen name="Profile" component={UserProfileScreen} />
+                                <Stack.Screen name="AcademicYear" component={AcademicYearScreen} />
+                            </Stack.Navigator>
+                        </NavigationContainer>
+                    </GestureHandlerRootView>
                 </AccessProvider>
             </SafeAreaProvider>
         </>
@@ -151,7 +159,9 @@ export default function App(): React.JSX.Element {
             <CAlert>
                 <NetworkProvider>
                     <AuthProvider>
-                        <AppNavigator />
+                        <FiscalYearProvider>
+                            <AppNavigator />
+                        </FiscalYearProvider>
                     </AuthProvider>
                     <StatusIndicator />
                 </NetworkProvider>

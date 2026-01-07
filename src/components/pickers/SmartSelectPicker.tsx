@@ -69,6 +69,21 @@ export default function SmartSelectPicker({
 		}
 	}, [apiUrl]);
 
+	const normalizedValue =
+		value !== null && value !== undefined ? String(value) : null;
+
+	useEffect(() => {
+		if (!normalizedValue || options.length === 0) return;
+
+		const exists = options.some(
+			(opt) => opt.value === normalizedValue
+		);
+
+		if (exists) {
+			onValueChange?.(normalizedValue);
+		}
+	}, [options]);
+
 	return (
 		<View style={styles.container}>
 			<DropDownPicker
@@ -151,6 +166,6 @@ const styles = StyleSheet.create({
 	pickerSelectStyles: {
 		borderColor: '#ccc',
 		borderRadius: 8,
-		minHeight: 47,
+		minHeight: 46,
 	},
 });
