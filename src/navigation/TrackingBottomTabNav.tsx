@@ -1,36 +1,41 @@
-// TrackingBottomTabNav.jsx
 import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Dimensions, ActivityIndicator } from 'react-native';
+import { Dimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { theme } from '../theme';
-import { useAccess } from '../hooks/useAccess.ts';
-import { CText } from '../components/common/CText.tsx';
-import ScanQRDetailsScreen from "../screens/Scanner/ScanQRDetailsScreen.tsx";
-import HistoryScreen from '../screens/Scanner/HistoryScreen.tsx';
-import AttachmentScreen from "../screens/Scanner/AttachmentScreen.tsx";
-import { useAuth } from "../context/AuthContext.tsx";
-import { TrackingProvider, useTracking } from "../context/TrackingContext.tsx";
+import { CText } from '../components/common/CText';
+import { useAuth } from '../context/AuthContext';
+import { TrackingProvider, useTracking } from '../context/TrackingContext';
+
+import ScanQRDetailsScreen from '../screens/Records/ScanQRDetailsScreen.tsx';
+import HistoryScreen from '../screens/Records/HistoryScreen.tsx';
+import AttachmentScreen from '../screens/Records/AttachmentScreen.tsx';
+import DetailsScreen from "../screens/Records/DetailsScreen.tsx";
 
 const Tab = createBottomTabNavigator();
 const currentColors = theme.colors.light;
 
+/* -------------------- ORIENTATION HOOK -------------------- */
 function useOrientation() {
 	const [isLandscape, setIsLandscape] = useState(
 		Dimensions.get('window').width > Dimensions.get('window').height
 	);
 
 	useEffect(() => {
-		const subscription = Dimensions.addEventListener('change', ({ window }) => {
+		const sub = Dimensions.addEventListener('change', ({ window }) => {
 			setIsLandscape(window.width > window.height);
 		});
-		return () => subscription?.remove?.();
+		return () => sub?.remove?.();
 	}, []);
 
 	return isLandscape;
 }
 
+/* -------------------- WRAPPER -------------------- */
 export default function TrackingBottomTabNav({ route }) {
+	console.log('route', route.params.qr_code);
 	return (
 		<TrackingProvider qr_code={route.params.qr_code}>
 			<TrackingTabContent />
@@ -38,18 +43,24 @@ export default function TrackingBottomTabNav({ route }) {
 	);
 }
 
+/* -------------------- CONTENT -------------------- */
 function TrackingTabContent() {
 	const isLandscape = useOrientation();
+	const insets = useSafeAreaInsets();
 	const { user } = useAuth();
-	const { record, loading } = useTracking();
+	const { record } = useTracking();
+
 	const isCreator = record?.created_by === user?.id;
-	console.log('TrackingTabContent', isCreator);
+	const TAB_HEIGHT = isLandscape ? 54 : 64;
 
 	return (
 		<Tab.Navigator
 			screenOptions={({ route }) => ({
-				tabBarIcon: ({ color, size, focused }) => {
-					let iconName = 'ellipse-outline';
+				headerShown: false,
+
+				tabBarIcon: ({ focused }) => {
+					let iconName: string;
+
 					switch (route.name) {
 						case 'Action':
 							iconName = focused ? 'flash' : 'flash-outline';
@@ -57,50 +68,64 @@ function TrackingTabContent() {
 						case 'History':
 							iconName = focused ? 'time' : 'time-outline';
 							break;
+							case 'Details':
+								iconName = focused ? 'list' : 'list-outline';
+								break;
 						case 'Attachment':
-							iconName = focused ? 'document-text' : 'document-text-outline';
+							iconName = focused
+								? 'document-text'
+								: 'document-text-outline';
 							break;
 						default:
-							iconName = focused ? 'help-circle' : 'help-circle-outline';
-							break;
+							iconName = 'help-circle-outline';
 					}
-					return <Icon name={iconName} size={20} color={focused ? currentColors.primary : '#9F9F9F'} />;
+
+					return (
+						<Icon
+							name={iconName}
+							size={22}
+							color={focused ? currentColors.primary : '#9F9F9F'}
+						/>
+					);
 				},
-				tabBarLabel: ({ color, focused }) => (
+
+				tabBarLabel: ({ focused }) => (
 					<CText
 						numberOfLines={1}
 						style={{
-							color: focused ? currentColors.primary : '#9F9F9F',
-							fontWeight: focused ? 'bold' : 'normal',
 							fontSize: 12,
-							textAlign: 'center',
+							fontWeight: focused ? '600' : '400',
+							color: focused ? currentColors.primary : '#9F9F9F',
 						}}
 					>
 						{route.name}
 					</CText>
 				),
+
 				tabBarLabelPosition: isLandscape ? 'beside-icon' : 'below-icon',
-				tabBarActiveTintColor: currentColors.primary,
-				tabBarInactiveTintColor: '#9F9F9F',
-				headerShown: false,
+
 				tabBarStyle: {
+					height: TAB_HEIGHT + insets.bottom,
+					paddingBottom: Math.max(insets.bottom, 8),
+					paddingTop: 6,
 					backgroundColor: currentColors.card,
-					height: isLandscape ? 55 : 65,
-					paddingTop: 4,
-					paddingBottom: isLandscape ? 4 : 10,
+					borderTopWidth: 0.5,
+					borderTopColor: '#E0E0E0',
 					shadowColor: '#000',
 					shadowOffset: { width: 0, height: -2 },
-					shadowOpacity: 0.1,
-					shadowRadius: 10,
-					borderColor: '#ccc',
-					flexDirection: isLandscape ? 'row' : 'column',
+					shadowOpacity: 0.08,
+					shadowRadius: 6,
+					elevation: 8,
 				},
 			})}
 		>
+			<Tab.Screen name="Details" component={DetailsScreen} />
 			<Tab.Screen name="Action" component={ScanQRDetailsScreen} />
+
 			{isCreator && (
 				<Tab.Screen name="Attachment" component={AttachmentScreen} />
 			)}
+
 			<Tab.Screen name="History" component={HistoryScreen} />
 		</Tab.Navigator>
 	);

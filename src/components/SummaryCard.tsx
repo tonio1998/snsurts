@@ -1,68 +1,57 @@
-import {View} from "react-native";
-import ShimmerPlaceHolder from "react-native-shimmer-placeholder";
-import LinearGradient from "react-native-linear-gradient";
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
+import Icon from 'react-native-vector-icons/Ionicons';
+import { CText } from './common/CText';
+import { theme } from '../theme';
+
+interface SummaryCardProps {
+    title: string;
+    value: string | number;
+    icon: string;
+    color?: string;
+}
 
 export const SummaryCard = ({
                                 title,
-                                stats,
-                                loading,
-                                formatNumber = v => v,
-                                CText,
-                                backgroundColor = '#28a74515',
-                                textColor = '#259644',
-                                cardStyle = {} // 🔥 dynamic style here
-                            }) => {
+                                value,
+                                icon,
+                                color = theme.colors.light.primary,
+                            }: SummaryCardProps) => {
     return (
-        <View
-            style={[
-                {
-                    backgroundColor,
-                    padding: 16,
-                    paddingVertical: 16,
-                    borderRadius: 8,
-                    minWidth: 280,
-                    flex: 1,
-                    justifyContent: 'center',
-                    shadowColor: '#000',
-                    shadowOpacity: 0.1,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowRadius: 6,
-                    elevation: 6,
-                    marginVertical: 5
-                },
-                cardStyle // 👈 override or extend
-            ]}
-        >
-            {title && (
-                <CText fontSize={18} fontStyle="B" style={{ color: textColor, marginBottom: 12 }}>
-                    {title}
-                </CText>
-            )}
-
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 16 }}>
-                {stats.map((stat, index) => (
-                    <View key={index} style={{ flex: 1 }}>
-                        {stat.label && (
-                            <CText fontSize={14} fontStyle="M" style={{ color: textColor }}>
-                                {stat.label}
-                            </CText>
-                        )}
-
-                        {loading ? (
-                            <ShimmerPlaceHolder
-                                LinearGradient={LinearGradient}
-                                style={{ width: 80, height: 28, borderRadius: 4, marginTop: 4 }}
-                                shimmerStyle={{ borderRadius: 4 }}
-                                autoRun
-                            />
-                        ) : (
-                            <CText fontSize={24} fontStyle="B" style={{ color: textColor }}>
-                                {formatNumber(stat.value)}
-                            </CText>
-                        )}
-                    </View>
-                ))}
+        <View style={styles.card}>
+            <View style={[styles.iconWrap, { backgroundColor: color + '22' }]}>
+                <Icon name={icon} size={22} color={color} />
             </View>
+
+            <CText fontStyle="B" fontSize={22}>
+                {value}
+            </CText>
+
+            <CText style={styles.title}>{title}</CText>
         </View>
     );
 };
+
+const styles = StyleSheet.create({
+    card: {
+        width: '48%',
+        backgroundColor: '#fff',
+        borderRadius: 14,
+        padding: 16,
+        marginBottom: 12,
+        elevation: 2,
+    },
+    iconWrap: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 10,
+    },
+    title: {
+        fontSize: 13,
+        color: '#777',
+        marginTop: 4,
+    },
+});

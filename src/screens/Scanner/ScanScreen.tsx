@@ -1,96 +1,67 @@
-import {NetworkContext} from "../../context/NetworkContext.tsx";
-import {useCallback, useContext, useEffect, useRef, useState} from "react";
-import {useFocusEffect, useIsFocused, useNavigation} from "@react-navigation/native";
-import {useAlert} from "../../components/CAlert.tsx";
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
-    Alert,
-    Animated, Image,
+    Animated,
     PermissionsAndroid,
     Platform,
     SafeAreaView,
-    ScrollView,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View,
-    Vibration, TouchableOpacity
-} from "react-native";
-import NetInfo from "@react-native-community/netinfo";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import {getCurrentLocation} from "../../services/locationService.ts";
-import {FILE_BASE_URL} from "../../../env.ts";
-import {registerSyncHandler} from "../../utils/sqlite/syncManager";
-import CustomHeader from "../../components/layout/CustomHeader.tsx";
-import {theme} from "../../theme";
-import CButton from "../../components/buttons/CButton.tsx";
-import {CText} from "../../components/common/CText.tsx";
-import {Camera} from "react-native-camera-kit";
-import {formatDate} from "../../utils/dateFormatter";
-import {globalStyles} from "../../theme/styles.ts";
-import {handleApiError} from "../../utils/errorHandler.ts";
-import {addToLogs} from "../../api/modules/logsApi.ts";
-import {useAuth} from "../../context/AuthContext.tsx";
+    Vibration,
+} from 'react-native';
+import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
+import NetInfo from '@react-native-community/netinfo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Camera } from 'react-native-camera-kit';
+import Icon from 'react-native-vector-icons/Ionicons';
+
+import { NetworkContext } from '../../context/NetworkContext';
+import { useAuth } from '../../context/AuthContext';
+import { useAlert } from '../../components/CAlert';
+import { theme } from '../../theme';
+import { CText } from '../../components/common/CText';
+
+const SCAN_SIZE = 260;
+const CORNER = 26;
+const STROKE = 4;
 
 export default function ScanScreen() {
     const { user } = useAuth();
     const network = useContext(NetworkContext);
     const navigation = useNavigation();
-    const [hasPermission, setHasPermission] = useState(false);
-    const [scanned, setScanned] = useState(false);
-    const [cameraType, setCameraType] = useState(false);
-    const [continuousScan, setContinuousScan] = useState(false);
-    const [userScanned, setuserScanned] = useState();
-    const cameraRef = useRef(null);
+    const isFocused = useIsFocused();
+    const { showAlert } = useAlert();
+
+    const cameraRef = useRef<Camera | null>(null);
     const scannedRef = useRef(false);
     const scanLineAnim = useRef(new Animated.Value(0)).current;
-    const [selected, setSelected] = useState<0 | 1 | null>(1);
-    const {showAlert} = useAlert();
-    const [offlineCount, setOfflineCount] = useState(0);
-    const [syncing, setSyncing] = useState(false);
-    const [syncProgress, setSyncProgress] = useState(0);
-    const [isOnline, setIsOnline] = useState(false);
-    const animatedProgress = useRef(new Animated.Value(0)).current;
-    const isFocused = useIsFocused();
-    const [location, setLocation] = useState({latitude: null, longitude: null});
-    const SCAN_BOX_SIZE = 300;
-    const [imageUri, setImageUri] = useState();
-    const [recentScan, setRecentScan] = useState(false);
+
+    const [hasPermission, setHasPermission] = useState(false);
+    const [torch, setTorch] = useState(false);
+    const [isOnline, setIsOnline] = useState(true);
+    const [recentScan, setRecentScan] = useState<string[]>([]);
 
     useEffect(() => {
-        const animation = Animated.timing(animatedProgress, {
-            toValue: syncProgress,
-            duration: 300,
-            useNativeDriver: false,
-        });
-        animation.start();
-        return () => animation.stop();
-    }, [syncProgress]);
-
-    const fetchRecentScan = async () => {
-        const key = 'recentScan' + user?.id;
-        try {
-            const stored = await AsyncStorage.getItem(key);
-            const scanList = stored ? JSON.parse(stored) : [];
-            setRecentScan(scanList);
-
-
-            console.log("recentScans lists: ", recentScan);
-        } catch (e) {
-            console.error("Error fetching recent scans:", e);
-        }
-    };
-
-    useFocusEffect(
-        useCallback(() => {
-            fetchRecentScan();
-        }, [])
-    );
+        const req = async () => {
+            if (Platform.OS === 'android') {
+                const g = await PermissionsAndroid.request(
+                    PermissionsAndroid.PERMISSIONS.CAMERA
+                );
+                setHasPermission(g === PermissionsAndroid.RESULTS.GRANTED);
+            } else {
+                setHasPermission(true);
+            }
+        };
+        req();
+    }, []);
 
     useEffect(() => {
         Animated.loop(
             Animated.sequence([
                 Animated.timing(scanLineAnim, {
-                    toValue: SCAN_BOX_SIZE,
-                    duration: 2000,
+                    toValue: SCAN_SIZE,
+                    duration: 1600,
                     useNativeDriver: true,
                 }),
                 Animated.timing(scanLineAnim, {
@@ -102,290 +73,196 @@ export default function ScanScreen() {
         ).start();
     }, []);
 
-    const isConnectedNow = (state) => state.isConnected && state.isInternetReachable;
-
     useEffect(() => {
-        const unsubscribe = NetInfo.addEventListener(async state => {
-            const connected = isConnectedNow(state);
-            setIsOnline(connected);
-
-            const logs = await AsyncStorage.getItem('offline_logs');
-            const parsed = JSON.parse(logs || '[]');
-            setOfflineCount(parsed.length);
-        });
-        return () => unsubscribe();
+        const unsub = NetInfo.addEventListener(s =>
+            setIsOnline(!!s.isConnected && !!s.isInternetReachable)
+        );
+        return unsub;
     }, []);
 
-    useEffect(() => {
-        const fetchLocation = async () => {
-            try {
-                const currentLocation = await getCurrentLocation();
-                setLocation(currentLocation);
-            } catch (error) {
-                console.warn('Failed to get location:', error.message);
-                setLocation({latitude: null, longitude: null});
-            }
-        };
-        fetchLocation();
-    }, []);
+    const loadRecent = async () => {
+        const key = `recentScan_${user?.id}`;
+        const stored = await AsyncStorage.getItem(key);
+        setRecentScan(stored ? JSON.parse(stored) : []);
+    };
 
-    const onBarcodeRead = async (event) => {
-        if (!continuousScan && scannedRef.current) return;
+    useFocusEffect(
+        useCallback(() => {
+            loadRecent();
+            scannedRef.current = false;
+        }, [])
+    );
 
-        scannedRef.current = true;
-        setScanned(true);
-
-        const {codeStringValue} = event.nativeEvent;
+    const onReadCode = (event: any) => {
+        if (scannedRef.current) return;
+        const { codeStringValue } = event.nativeEvent;
         if (!codeStringValue) return;
 
-        const [qr_code, name = "Unknown"] = codeStringValue.split('@') ?? [];
+        scannedRef.current = true;
+        Vibration.vibrate(60);
 
-        Vibration.vibrate(100);
-
-        try {
-            if (network?.isOnline) {
-                navigation.navigate('ScanQRDetails', {qr_code});
-            }
-        } catch (error) {
-            handleApiError(error, 'QR (stored offline)');
-        } finally {
-            if (!continuousScan) {
-                setTimeout(() => {
-                    scannedRef.current = false;
-                    setScanned(false);
-                }, 2000);
-            }
-        }
-    };
-
-    const handleManualSync = async () => {
-        setSyncing(true);
-        setSyncProgress(0);
-        await syncOfflineLogs((percent) => {
-            setSyncProgress(percent);
-        });
-        setSyncing(false);
-        setOfflineCount(0);
-    };
-
-    registerSyncHandler(handleManualSync);
-
-    useEffect(() => {
-        const requestPermission = async () => {
-            if (Platform.OS === 'android') {
-                const granted = await PermissionsAndroid.request(
-                    PermissionsAndroid.PERMISSIONS.CAMERA
-                );
-                if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-                    setHasPermission(true);
-                } else {
-                    Alert.alert('Permission denied');
-                }
-            } else {
-                setHasPermission(true);
-            }
-        };
-        requestPermission();
-    }, []);
-
-    useEffect(() => {
-        if (isFocused) {
+        if (!network?.isOnline) {
+            showAlert('Offline', 'Connect to the internet to continue.');
             scannedRef.current = false;
-            setScanned(false);
+            return;
         }
-    }, [isFocused]);
+
+        const [qr_code] = codeStringValue.split('@');
+
+        // const qr_code = codeStringValue;
+
+        console.log('qr_code', qr_code);
+
+        setTimeout(() => {
+            navigation.navigate('ScanQRDetails', { qr_code });
+            scannedRef.current = false;
+        }, 120);
+    };
 
     if (!hasPermission) {
         return (
             <View style={styles.center}>
-                <Text>Requesting camera permission...</Text>
+                <Text>Camera permission required</Text>
             </View>
         );
     }
 
     return (
-        <>
-            <CustomHeader/>
-            <SafeAreaView style={styles.container}>
-                <ScrollView contentContainerStyle={{paddingBottom: 100}} showsVerticalScrollIndicator={false}>
-                    {isFocused && (
-                        <View style={styles.cameraWrapper}>
-                            <View style={styles.cameraContainer}>
-                                <Camera
-                                    ref={cameraRef}
-                                    cameraType={cameraType ? 'front' : 'back'}
-                                    style={styles.camera}
-                                    scanBarcode={true}
-                                    onReadCode={onBarcodeRead}
-                                    showFrame={false}
-                                />
-                                <Animated.View
-                                    style={[
-                                        styles.scanLine,
-                                        {
-                                            transform: [{translateY: scanLineAnim}],
-                                        },
-                                    ]}
-                                />
-                            </View>
-                        </View>
-                    )}
+        <SafeAreaView style={styles.root}>
+            {isFocused && (
+                <Camera
+                    ref={cameraRef}
+                    style={StyleSheet.absoluteFill}
+                    scanBarcode
+                    onReadCode={onReadCode}
+                    torchMode={torch ? 'on' : 'off'}
+                    showFrame={false}
+                />
+            )}
 
-                    {recentScan.length > 0 && (
-                        <View style={styles.recentScansSection}>
-                            <CText fontStyle="SB" fontSize={16} style={styles.recentScansTitle}>
-                                Recent Scans
-                            </CText>
-                            {recentScan.slice(0, 3).map((item, index) => (
-                                <TouchableOpacity
-                                    key={item + index}
-                                    style={styles.recentScanCard}
-                                    onPress={() => navigation.navigate('ScanQRDetails', { qr_code: item })}
-                                    activeOpacity={0.8}
-                                >
-                                    <CText fontStyle="SB" fontSize={14} style={styles.recentScanText}>
-                                        {item}
-                                    </CText>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    )}
+            <View style={styles.overlay}>
+                <View style={styles.topBar}>
+                    <TouchableOpacity onPress={() => setTorch(v => !v)}>
+                        <Icon
+                            name={torch ? 'flash' : 'flash-off'}
+                            size={24}
+                            color="#fff"
+                        />
+                    </TouchableOpacity>
+                </View>
 
+                <View style={styles.scanBox}>
+                    <Corner tl />
+                    <Corner tr />
+                    <Corner bl />
+                    <Corner br />
 
-                </ScrollView>
-            </SafeAreaView>
-        </>
+                    <Animated.View
+                        style={[
+                            styles.scanLine,
+                            { transform: [{ translateY: scanLineAnim }] },
+                        ]}
+                    />
+                </View>
+
+                <CText fontSize={14} style={styles.instruction}>
+                    Place QR code inside the frame
+                </CText>
+
+                {!isOnline && (
+                    <CText fontSize={12} style={styles.offline}>
+                        Offline Mode
+                    </CText>
+                )}
+            </View>
+
+            {recentScan.length > 0 && (
+                <View style={styles.bottomHint}>
+                    <CText fontSize={12} color="#666">
+                        Recent scan available
+                    </CText>
+                </View>
+            )}
+        </SafeAreaView>
+    );
+}
+
+function Corner({ tl, tr, bl, br }: any) {
+    return (
+        <View
+            style={[
+                styles.corner,
+                tl && { top: 0, left: 0, borderLeftWidth: STROKE, borderTopWidth: STROKE },
+                tr && { top: 0, right: 0, borderRightWidth: STROKE, borderTopWidth: STROKE },
+                bl && { bottom: 0, left: 0, borderLeftWidth: STROKE, borderBottomWidth: STROKE },
+                br && { bottom: 0, right: 0, borderRightWidth: STROKE, borderBottomWidth: STROKE },
+            ]}
+        />
     );
 }
 
 const styles = StyleSheet.create({
-    recentScansSection: {
-        // marginHorizontal: 16,
-        // marginVertical: 12,
-    },
-    recentScansTitle: {
-        marginBottom: 12,
-        color: '#222',
-    },
-    recentScanCard: {
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        paddingVertical: 14,
-        paddingHorizontal: 18,
-        marginBottom: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-        elevation: 1,
-    },
-    recentScanText: {
-        color: '#1e293b',
-    },
-    container: {
-        flex: 1,
+    root: { flex: 1, backgroundColor: '#000' },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.55)',
         alignItems: 'center',
-        padding: 16,
-        backgroundColor: '#f9f9f9',
+        paddingTop: 50,
     },
-    center: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    cameraWrapper: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: 100,
-        marginBottom: 20,
-    },
-    cameraContainer: {
-        width: 300,
-        height: 300,
-        borderRadius: 16,
-        overflow: 'hidden',
-        position: 'relative',
-        borderWidth: 3,
-        borderColor: 'limegreen',
-        backgroundColor: '#000',
-        shadowColor: 'limegreen',
-        shadowOffset: {width: 0, height: 0},
-        shadowOpacity: 0.4,
-        shadowRadius: 10,
-        elevation: 6,
-    },
-    camera: {
+
+    topBar: {
         width: '100%',
-        height: '100%',
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
     },
+
+    scanBox: {
+        width: SCAN_SIZE,
+        height: SCAN_SIZE,
+        marginTop: 120,
+        position: 'relative',
+    },
+
     scanLine: {
         position: 'absolute',
-        width: '90%',
-        left: '5%',
-        height: 4,
-        backgroundColor: 'lime',
-        borderRadius: 2,
-        shadowColor: 'lime',
-        shadowOpacity: 0.9,
-        shadowRadius: 8,
-        shadowOffset: {width: 0, height: 0},
-        elevation: 10,
-        zIndex: 99,
-    },
-    control: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 20,
-        padding: 10,
-    },
-    progressBarBackground: {
-        width: 200,
-        height: 8,
-        backgroundColor: '#eee',
-        borderRadius: 5,
-        marginTop: 10,
-        overflow: 'hidden',
-    },
-    card: {
-        flexDirection: 'row',
-        backgroundColor: '#fff',
-        padding: 12,
-        borderRadius: 16,
-        shadowColor: '#000',
-        shadowOpacity: 0.08,
-        shadowRadius: 6,
-        shadowOffset: {width: 0, height: 3},
-        alignItems: 'center',
         width: '100%',
-        maxWidth: 340,
-        marginTop: 10,
-        elevation: 2,
+        height: 2,
+        backgroundColor: theme.colors.light.primary,
+        shadowColor: theme.colors.light.primary,
+        shadowOpacity: 0.9,
+        shadowRadius: 6,
+        elevation: 6,
     },
-    photo: {
-        width: 72,
-        height: 72,
-        borderRadius: 36,
-        backgroundColor: '#eee',
+
+    instruction: {
+        marginTop: 24,
+        color: '#fff',
+        opacity: 0.9,
     },
-    info: {
-        marginLeft: 14,
-        flex: 1,
+
+    offline: {
+        marginTop: 6,
+        color: '#ffb020',
     },
-    name: {
-        fontWeight: 'bold',
-        marginBottom: 4,
-        color: '#222',
+
+    bottomHint: {
+        position: 'absolute',
+        bottom: 28,
+        alignSelf: 'center',
+        backgroundColor: '#fff',
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        borderRadius: 20,
     },
-    lrn: {
-        color: '#666',
-        marginBottom: 2,
-    },
-    status: {
-        fontWeight: 'bold',
-        marginTop: 4,
-        color: '#444',
+
+    corner: {
+        position: 'absolute',
+        width: CORNER,
+        height: CORNER,
+        borderColor: theme.colors.light.primary,
     },
 });

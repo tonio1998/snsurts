@@ -1,4 +1,5 @@
 import api from '../api.ts';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const addToLogs = async (qrcode) => {
 	const response = await api.post('/rts/log/check', {qrcode});
@@ -12,18 +13,48 @@ export const getTrackingHistory = async ({ page = 1, TransactionID }) => {
 	return response.data;
 };
 
-export const getRecords = async ({ page = 1, search = '' }) => {
-	const response = await api.get('/rts', {
-		params: { page, search }
-	});
+export const searchRecords = async (search: string) => {
+	const response = await api.post('/rts/search', { q: search });
 	return response.data;
 };
+
+
+export const getRecords = async ({
+									 fiscalYear,
+									 search,
+								 }: {
+	fiscalYear: number;
+	search?: string;
+}) => {
+	const response = await api.get('/rts', {
+		params: {
+			FiscalYear: fiscalYear,
+			search,
+		},
+	});
+
+	return response.data.data;
+};
+
+
 
 
 export const addRecord = async (data) => {
 	const response = await api.post('/rts/add', data);
 	return response.data;
 };
+
+export const updateRecord = async (id, formData) => {
+	console.log("updateRecord", id, formData);
+
+	const response = await api.post('/rts/update', {
+		id,
+		...formData,
+	});
+
+	return response.data;
+};
+
 
 export const fetchRecordAttachments = async ({ RecordID }) => {
 	const response = await api.get('/rts/attachment/fetch', {
@@ -44,4 +75,11 @@ export const uploadRecordAttachment = async (formData) => {
 		console.error('API Error:', error);
 		throw error;
 	}
+};
+
+export const getDashData = async (fiscalYear) => {
+	const response = await api.get('/rts/dashboard/', {
+		params: { fiscalYear }
+	});
+	return response.data;
 };

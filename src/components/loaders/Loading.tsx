@@ -3,59 +3,53 @@ import {
     View,
     StyleSheet,
     Animated,
-    Easing,
     Text,
     ActivityIndicator,
-    Platform,
 } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
-import {theme} from "../../theme";
+import { theme } from "../../theme";
+import {isTablet} from "../../utils/responsive";
 
 interface LoadingProps {
     loading: boolean;
     timeout?: number;
     onTimeout?: (errorMessage: string) => void;
+    text?: string;
 }
 
 const Loading: React.FC<LoadingProps> = ({
                                              loading,
-                                             timeout = 6000,
+                                             timeout = 20000,
                                              onTimeout,
+                                             text = "Loading..."
                                          }) => {
-    const opacity = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(-60)).current;
+
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-    const fadeIn = () => {
-        Animated.timing(opacity, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: true,
-        }).start();
-    };
-
-    const fadeOut = () => {
-        Animated.timing(opacity, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-        }).start();
-    };
 
     useEffect(() => {
         if (loading) {
-            fadeIn();
+            Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 55,
+                useNativeDriver: true,
+            }).start();
 
             timeoutRef.current = setTimeout(() => {
                 NetInfo.fetch().then(state => {
                     const message = !state.isConnected
                         ? 'No internet connection.'
                         : 'Server is not responding.';
-
-                    if (onTimeout) onTimeout(message);
+                    onTimeout?.(message);
                 });
             }, timeout);
         } else {
-            fadeOut();
+            Animated.timing(slideAnim, {
+                toValue: -60,
+                duration: 200,
+                useNativeDriver: true,
+            }).start();
+
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
                 timeoutRef.current = null;
@@ -70,48 +64,41 @@ const Loading: React.FC<LoadingProps> = ({
     if (!loading) return null;
 
     return (
-        <Animated.View style={[styles.overlay, { opacity }]}>
-            <View style={styles.loaderContainer}>
-                <ActivityIndicator
-                    size="large"
-                    color={theme.colors.light.primary}
-                />
-                <Text style={styles.loadingText}>Loading...</Text>
-            </View>
+        <Animated.View style={[styles.container]}>
+            <ActivityIndicator size="large" color={theme.colors.light.primary} />
+            <Text style={styles.text}>{text}</Text>
         </Animated.View>
     );
 };
 
 const styles = StyleSheet.create({
-    overlay: {
+    container: {
         position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
+        top: '50%',
+        padding: 18,
+        backgroundColor: '#fff',
+        flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.4)',
-        zIndex: 9999,
-    },
-    loaderContainer: {
-        backgroundColor: 'rgba(255, 255, 255, 1)',
-        paddingVertical: 20,
-        paddingHorizontal: 30,
-        borderRadius: 14,
-        alignItems: 'center',
+        paddingHorizontal: 20,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 10,
-        // elevation: 5,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 5,
+        zIndex: 999,
+        borderRadius: 4,
+        alignSelf: 'center',
+        maxWidth: '87%',
+        width: isTablet() ? '20%' : '100%',
     },
-    loadingText: {
-        marginTop: 10,
+    text: {
+        marginLeft: 8,
         fontSize: 16,
         color: '#333',
         fontWeight: '500',
     },
 });
+
 
 export default Loading;

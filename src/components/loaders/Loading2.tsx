@@ -8,17 +8,18 @@ import {
 } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { theme } from '../../theme';
+import ActivityIndicator2 from "./ActivityIndicator2.tsx";
 
 interface LoadingProps {
     loading: boolean;
-    timeout?: number; // Optional timeout in ms, default: 6000
+    timeout?: number;
     onTimeout?: (errorMessage: string) => void;
-    bottom?: number; // Optional bottom offset, default: 65
+    bottom?: number;
 }
 
 const Loading: React.FC<LoadingProps> = ({
                                              loading,
-                                             timeout = 6000,
+                                             timeout = 10000,
                                              onTimeout,
                                              bottom = 65,
                                          }) => {
@@ -42,7 +43,6 @@ const Loading: React.FC<LoadingProps> = ({
 
     useEffect(() => {
         if (loading) {
-            // ToastAndroid.show('Opening file...' + bottom, ToastAndroid.SHORT);
             setShouldShow(true);
             startIndeterminateAnimation();
 
@@ -77,6 +77,7 @@ const Loading: React.FC<LoadingProps> = ({
 
     return (
         <View style={[styles.progressContainer]}>
+            {/*<ActivityIndicator2 />*/}
             <Animated.View
                 style={[
                     styles.indicator,

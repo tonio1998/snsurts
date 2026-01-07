@@ -53,6 +53,11 @@ export function getFileSize(size: number) {
   return `${size.toFixed(2)} ${units[unitIndex]}`;
 }
 
+export const getDisplayName = (name?: string) => {
+  if (!name) return 'User';
+  return name.split(' ')[0];
+};
+
 export const getAddressFromCoords = async (latitude, longitude) => {
   try {
     const response = await fetch(
