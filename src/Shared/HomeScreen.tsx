@@ -26,6 +26,7 @@ import { formatNumber, getDisplayName } from '../utils/format';
 import { getGreeting } from '../utils/greetings';
 import { useFiscalYear } from '../context/FiscalYearContext';
 import { getDashData, searchRecords } from '../api/modules/logsApi';
+import {handleApiError} from "../utils/errorHandler.ts";
 
 const HomeScreen = ({ navigation }) => {
 	const { user } = useAuth();
@@ -57,13 +58,18 @@ const HomeScreen = ({ navigation }) => {
 	const loadDashboard = async () => {
 		try {
 			setLoading(true);
+
 			const data = await getDashData(fiscalYear);
+			console.log("data: ", data)
 			setDashboardData(data);
+		} catch (error) {
+			handleApiError(error);
 		} finally {
 			setLoading(false);
 			setRefreshing(false);
 		}
 	};
+
 
 	useEffect(() => {
 		loadDashboard();
@@ -83,6 +89,8 @@ const HomeScreen = ({ navigation }) => {
 				setSearching(true);
 				const res = await searchRecords(text);
 				setResults(res?.data ?? []);
+			} catch (err){
+				handleApiError(err);
 			} finally {
 				setSearching(false);
 			}
@@ -177,21 +185,28 @@ const HomeScreen = ({ navigation }) => {
 						}
 						contentContainerStyle={{ paddingBottom: 120 }}
 					>
-						{/* HERO */}
 						<View style={styles.heroWrap}>
 							<LinearGradient
 								colors={[
+									theme.colors.light.primary_light,
 									theme.colors.light.primary,
-									theme.colors.light.primary_dark,
 								]}
 								style={styles.heroCard}
 							>
-								<CText style={styles.heroLabel}>Active Documents</CText>
+								<View style={styles.bgCircleLarge} />
+								<View style={styles.bgCircleSmall} />
+
+								<CText style={styles.heroLabel}>Total Logs</CText>
+
 								<CText style={styles.heroValue}>
-									{formatNumber(activeCount)}
+									{formatNumber(dashboardData?.totalLogs)}
 								</CText>
 
 								<View style={styles.heroMeta}>
+									<CText style={styles.heroMetaText}>
+										{dashboardData?.stats?.totalCount} Active
+									</CText>
+									<CText style={styles.heroMetaDot}>•</CText>
 									<CText style={styles.heroMetaText}>
 										{dashboardData?.stats?.Incoming} Incoming
 									</CText>
@@ -199,17 +214,20 @@ const HomeScreen = ({ navigation }) => {
 									<CText style={styles.heroMetaText}>
 										{dashboardData?.stats?.Outgoing} Outgoing
 									</CText>
+									<CText style={styles.heroMetaDot}>•</CText>
+									<CText style={styles.heroMetaText}>
+										{dashboardData?.stats?.Done} Done
+									</CText>
 								</View>
 							</LinearGradient>
 						</View>
 
-						{/* ACTIONS */}
+
 						<View style={styles.actionStrip}>
 							<Action icon="scan-outline" label="Scan" onPress={() => navigation.navigate('Scan')} />
 							<Action icon="add-outline" label="New" onPress={() => navigation.navigate('AddRecord')} />
 						</View>
 
-						{/* RECENT ACTIVITY */}
 						<View style={styles.section}>
 							<CText fontStyle="B">Recent Activity</CText>
 
@@ -243,7 +261,6 @@ const HomeScreen = ({ navigation }) => {
 							))}
 						</View>
 
-						{/* OFFLINE */}
 						{network?.isConnected === false && (
 							<View style={styles.offline}>
 								<Icon name="cloud-offline-outline" size={16} color="#fff" />
@@ -271,7 +288,26 @@ const styles = StyleSheet.create({
 		marginTop: 4,
 	},
 
-	/* ================= SEARCH ================= */
+	bgCircleLarge: {
+		position: 'absolute',
+		width: 220,
+		height: 220,
+		borderRadius: 110,
+		backgroundColor: 'rgba(255,255,255,0.2)',
+		top: -80,
+		right: -60,
+	},
+
+	bgCircleSmall: {
+		position: 'absolute',
+		width: 120,
+		height: 120,
+		borderRadius: 60,
+		backgroundColor: 'rgba(255,255,255,0.3)',
+		bottom: -40,
+		left: -30,
+	},
+
 
 	searchBox: {
 		flexDirection: 'row',
@@ -328,7 +364,7 @@ const styles = StyleSheet.create({
 	},
 
 	heroCard: {
-		borderRadius: 20,
+		borderRadius: theme.radius.md,
 		padding: 20,
 	},
 
@@ -352,7 +388,7 @@ const styles = StyleSheet.create({
 
 	heroMetaText: {
 		color: '#fff',
-		fontSize: 12,
+		fontSize: 13,
 		opacity: 0.85,
 	},
 
