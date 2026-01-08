@@ -26,16 +26,22 @@ import { formatNumber, getDisplayName } from '../utils/format';
 import { getGreeting } from '../utils/greetings';
 import { useFiscalYear } from '../context/FiscalYearContext';
 import { getDashData, searchRecords } from '../api/modules/logsApi';
-import {handleApiError} from "../utils/errorHandler.ts";
+import { handleApiError } from '../utils/errorHandler';
+import {loadDashboardFromCache, saveDashboardToCache} from "../utils/cache/dashboardCache.ts";
+import {LastUpdatedBadge} from "../components/common/LastUpdatedBadge";
+import {useAccess} from "../hooks/useAccess.ts";
+import UnauthorizedView from "../components/UnauthorizedView.tsx";
 
 const HomeScreen = ({ navigation }) => {
 	const { user } = useAuth();
+	const { hasRole } = useAccess();
 	const network = useContext(NetworkContext);
 	const { fiscalYear } = useFiscalYear();
 
 	const [dashboardData, setDashboardData] = useState<any>({});
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
+	const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
 	const [query, setQuery] = useState('');
 	const [results, setResults] = useState<any[]>([]);
@@ -55,15 +61,30 @@ const HomeScreen = ({ navigation }) => {
 		}).start();
 	}, [query]);
 
-	const loadDashboard = async () => {
+	const loadDashboard = async (force = false) => {
+		if (!user?.id) return;
+
 		try {
 			setLoading(true);
 
-			const data = await getDashData(fiscalYear);
-			console.log("data: ", data)
-			setDashboardData(data);
-		} catch (error) {
-			handleApiError(error);
+			if (!force) {
+				const { data, date } = await loadDashboardFromCache(user.id, fiscalYear);
+				if (data) {
+					setDashboardData(data);
+					setLastUpdated(date);
+					return;
+				}
+			}
+
+			const fresh = await getDashData(fiscalYear);
+			setDashboardData(fresh);
+
+			const savedAt = await saveDashboardToCache(user.id, fiscalYear, fresh);
+			setLastUpdated(savedAt);
+
+			console.log("🔍 Dashboard data loaded", fresh);
+		} catch (err) {
+			handleApiError(err);
 		} finally {
 			setLoading(false);
 			setRefreshing(false);
@@ -73,7 +94,12 @@ const HomeScreen = ({ navigation }) => {
 
 	useEffect(() => {
 		loadDashboard();
-	}, []);
+	}, [fiscalYear]);
+
+	const onRefresh = () => {
+		setRefreshing(true);
+		loadDashboard(true);
+	};
 
 	const handleSearch = (text: string) => {
 		setQuery(text);
@@ -89,7 +115,7 @@ const HomeScreen = ({ navigation }) => {
 				setSearching(true);
 				const res = await searchRecords(text);
 				setResults(res?.data ?? []);
-			} catch (err){
+			} catch (err) {
 				handleApiError(err);
 			} finally {
 				setSearching(false);
@@ -97,25 +123,22 @@ const HomeScreen = ({ navigation }) => {
 		}, 400);
 	};
 
-	const activeCount =
-		(dashboardData?.stats?.Incoming ?? 0) +
-		(dashboardData?.stats?.Outgoing ?? 0);
+
+	if (!hasRole('STUD')) {
+		return <UnauthorizedView />;
+	}
 
 	return (
 		<>
 			<CustomHomeHeader />
 			<SafeAreaView style={globalStyles.safeArea}>
 				<View style={{ flex: 1 }}>
-
-					{/* HEADER */}
 					<View style={globalStyles.p_3}>
 						<CText fontSize={22} fontStyle="B">
 							{getGreeting()}, {getDisplayName(user?.name)}
 						</CText>
-						<CText style={styles.subtle}>
-							Document Tracking • FY {fiscalYear}
-						</CText>
-=
+						<LastUpdatedBadge date={lastUpdated} onReload={onRefresh}/>
+
 						<View style={styles.searchBox}>
 							<Icon name="search-outline" size={18} color="#888" />
 							<TextInput
@@ -127,7 +150,7 @@ const HomeScreen = ({ navigation }) => {
 							/>
 							{query.length > 0 && (
 								<TouchableOpacity onPress={() => setQuery('')}>
-									<Icon name="close" size={24} color="#aaa" />
+									<Icon name="close" size={22} color="#aaa" />
 								</TouchableOpacity>
 							)}
 						</View>
@@ -139,10 +162,14 @@ const HomeScreen = ({ navigation }) => {
 								styles.searchOverlay,
 								{
 									opacity: searchAnim,
-									transform: [{ translateY: searchAnim.interpolate({
-											inputRange: [0, 1],
-											outputRange: [20, 0],
-										})}],
+									transform: [
+										{
+											translateY: searchAnim.interpolate({
+												inputRange: [0, 1],
+												outputRange: [20, 0],
+											}),
+										},
+									],
 								},
 							]}
 						>
@@ -181,7 +208,10 @@ const HomeScreen = ({ navigation }) => {
 
 					<ScrollView
 						refreshControl={
-							<RefreshControl refreshing={refreshing} onRefresh={loadDashboard} />
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={onRefresh}
+							/>
 						}
 						contentContainerStyle={{ paddingBottom: 120 }}
 					>
@@ -193,20 +223,12 @@ const HomeScreen = ({ navigation }) => {
 								]}
 								style={styles.heroCard}
 							>
-								<View style={styles.bgCircleLarge} />
-								<View style={styles.bgCircleSmall} />
-
 								<CText style={styles.heroLabel}>Total Logs</CText>
-
 								<CText style={styles.heroValue}>
-									{formatNumber(dashboardData?.totalLogs)}
+									{formatNumber(dashboardData?.totalLogs || 0)}
 								</CText>
 
 								<View style={styles.heroMeta}>
-									<CText style={styles.heroMetaText}>
-										{dashboardData?.stats?.totalCount} Active
-									</CText>
-									<CText style={styles.heroMetaDot}>•</CText>
 									<CText style={styles.heroMetaText}>
 										{dashboardData?.stats?.Incoming} Incoming
 									</CText>
@@ -222,14 +244,23 @@ const HomeScreen = ({ navigation }) => {
 							</LinearGradient>
 						</View>
 
-
 						<View style={styles.actionStrip}>
-							<Action icon="scan-outline" label="Scan" onPress={() => navigation.navigate('Scan')} />
-							<Action icon="add-outline" label="New" onPress={() => navigation.navigate('AddRecord')} />
+							<Action
+								icon="scan-outline"
+								label="Scan"
+								onPress={() => navigation.navigate('Scan')}
+							/>
+							<Action
+								icon="add-outline"
+								label="New"
+								onPress={() => navigation.navigate('AddRecord')}
+							/>
 						</View>
 
 						<View style={styles.section}>
-							<CText fontStyle="B">Recent Activity</CText>
+							<CText fontStyle="B" fontSize={16} style={{ marginBottom: 10 }}>
+								Recent Activity
+							</CText>
 
 							{dashboardData?.latestLogs?.map(item => (
 								<TouchableOpacity
@@ -282,33 +313,9 @@ const Action = ({ icon, label, onPress }) => (
 );
 
 export default HomeScreen;
+
 const styles = StyleSheet.create({
-	subtle: {
-		color: '#777',
-		marginTop: 4,
-	},
-
-	bgCircleLarge: {
-		position: 'absolute',
-		width: 220,
-		height: 220,
-		borderRadius: 110,
-		backgroundColor: 'rgba(255,255,255,0.2)',
-		top: -80,
-		right: -60,
-	},
-
-	bgCircleSmall: {
-		position: 'absolute',
-		width: 120,
-		height: 120,
-		borderRadius: 60,
-		backgroundColor: 'rgba(255,255,255,0.3)',
-		bottom: -40,
-		left: -30,
-	},
-
-
+	subtle: { color: '#777', marginTop: 4 },
 	searchBox: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -319,32 +326,21 @@ const styles = StyleSheet.create({
 		marginTop: 14,
 		elevation: 2,
 	},
-
-	searchInput: {
-		flex: 1,
-		marginHorizontal: 8,
-		color: '#000',
-	},
-
+	searchInput: { flex: 1, marginHorizontal: 8, color: '#000' },
 	searchOverlay: {
 		position: 'absolute',
-		top: '23%',
+		top: '25%',
 		left: 0,
 		right: 0,
 		bottom: 0,
 		backgroundColor: theme.colors.light.card,
-		zIndex: 10,
 		borderTopLeftRadius: 20,
 		borderTopRightRadius: 20,
 		padding: 10,
 		elevation: 10,
+		zIndex: 10,
 	},
-
-	searchLoading: {
-		paddingHorizontal: 16,
-		paddingTop: 20,
-	},
-
+	searchLoading: { paddingHorizontal: 16, paddingTop: 20 },
 	searchRow: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -355,51 +351,18 @@ const styles = StyleSheet.create({
 		marginBottom: 10,
 		elevation: 1,
 	},
-
-	/* ================= HERO ================= */
-
-	heroWrap: {
-		marginHorizontal: 16,
-		marginBottom: 16,
-	},
-
-	heroCard: {
-		borderRadius: theme.radius.md,
-		padding: 20,
-	},
-
-	heroLabel: {
-		color: '#fff',
-		fontSize: 13,
-		opacity: 0.85,
-	},
-
+	heroWrap: { marginHorizontal: 16, marginBottom: 16 },
+	heroCard: { borderRadius: 16, padding: 20 },
+	heroLabel: { color: '#fff', fontSize: 13, opacity: 0.85 },
 	heroValue: {
 		color: '#fff',
 		fontSize: 42,
 		fontWeight: '700',
 		marginVertical: 6,
 	},
-
-	heroMeta: {
-		flexDirection: 'row',
-		alignItems: 'center',
-	},
-
-	heroMetaText: {
-		color: '#fff',
-		fontSize: 13,
-		opacity: 0.85,
-	},
-
-	heroMetaDot: {
-		color: '#fff',
-		marginHorizontal: 8,
-		opacity: 0.6,
-	},
-
-	/* ================= ACTIONS ================= */
-
+	heroMeta: { flexDirection: 'row', alignItems: 'center' },
+	heroMetaText: { color: '#fff', fontSize: 13, opacity: 0.85 },
+	heroMetaDot: { color: '#fff', marginHorizontal: 8, opacity: 0.6 },
 	actionStrip: {
 		flexDirection: 'row',
 		marginHorizontal: 16,
@@ -408,30 +371,8 @@ const styles = StyleSheet.create({
 		elevation: 2,
 		marginBottom: 18,
 	},
-
-	action: {
-		flex: 1,
-		alignItems: 'center',
-		paddingVertical: 14,
-	},
-
-	actionText: {
-		marginTop: 6,
-		fontSize: 12,
-	},
-
-	/* ================= SECTIONS ================= */
-
-	section: {
-		paddingHorizontal: 16,
-	},
-
-	sectionTitle: {
-		marginBottom: 10,
-	},
-
-	/* ================= ACTIVITY ================= */
-
+	action: { flex: 1, alignItems: 'center', paddingVertical: 14 },
+	section: { paddingHorizontal: 16 },
 	activityRow: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -441,12 +382,7 @@ const styles = StyleSheet.create({
 		marginBottom: 10,
 		elevation: 1,
 	},
-
-	meta: {
-		fontSize: 12,
-		color: '#777',
-		marginTop: 2,
-	},
+	meta: { fontSize: 12, color: '#777', marginTop: 2 },
 	status: (status: string) => ({
 		fontSize: 12,
 		fontWeight: '600',
@@ -457,14 +393,6 @@ const styles = StyleSheet.create({
 					? theme.colors.light.info
 					: theme.colors.light.warning,
 	}),
-
-	empty: {
-		alignItems: 'center',
-		paddingVertical: 20,
-	},
-
-	/* ================= OFFLINE ================= */
-
 	offline: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -474,9 +402,5 @@ const styles = StyleSheet.create({
 		borderRadius: 10,
 		justifyContent: 'center',
 	},
-
-	offlineText: {
-		color: '#fff',
-		marginLeft: 6,
-	},
+	offlineText: { color: '#fff', marginLeft: 6 },
 });

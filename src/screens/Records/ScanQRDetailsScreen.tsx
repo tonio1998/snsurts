@@ -25,20 +25,15 @@ import { useTracking } from '../../context/TrackingContext.tsx';
 import { useDeviceLocation } from '../../hooks/useDeviceLocation.ts';
 import LeafletMap from '../../components/maps/LeafletMap.tsx';
 
-/* ---------------- CONSTANTS ---------------- */
 
 const MAP_MAX_HEIGHT = 260;
 const MAP_MIN_HEIGHT = 90;
-
-/* ---------------- SCREEN ---------------- */
 
 export default function ScanQRDetailsScreen() {
     const navigation = useNavigation();
     const { record, logs } = useTracking();
 
     const TransactionID = record?.id;
-
-    console.log(record);
 
     const {
         location,

@@ -1,74 +1,113 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { NetworkContext } from "./NetworkContext.tsx";
-import {addToLogs} from "../api/modules/logsApi.ts";
-import {handleApiError} from "../utils/errorHandler.ts";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {useAuth} from "./AuthContext.tsx";
+
+import { NetworkContext } from "./NetworkContext";
+import { useAuth } from "./AuthContext";
+import { useFiscalYear } from "./FiscalYearContext";
+import { addToLogs } from "../api/modules/logsApi";
+import { handleApiError } from "../utils/errorHandler";
+import { loadRecordsFromCache } from "../utils/cache/recordsCache";
 
 const TrackingContext = createContext(null);
 
 export const TrackingProvider = ({ children, qr_code }) => {
     const { user } = useAuth();
+    const { fiscalYear } = useFiscalYear();
+    const network = useContext(NetworkContext);
+
     const [record, setRecord] = useState(null);
     const [logs, setLogs] = useState(null);
     const [loading, setLoading] = useState(false);
-    const network = useContext(NetworkContext);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-    const storeRecentScan = async (qr_code) => {
-        const key = 'recentScan' + user?.id;
+    const storeRecentScan = async (qr: string) => {
+        if (!user?.id) return;
+
+        const key = `recentScan_${user.id}`;
 
         try {
             const existing = await AsyncStorage.getItem(key);
-            let scanList;
+            const parsed = existing ? JSON.parse(existing) : [];
 
-            try {
-                const parsed = existing ? JSON.parse(existing) : [];
-                scanList = Array.isArray(parsed) ? parsed : [];
-            } catch (parseError) {
-                console.warn("Corrupted AsyncStorage data. Resetting.");
-                scanList = [];
-            }
+            const list = Array.isArray(parsed)
+                ? parsed.filter(code => code !== qr)
+                : [];
 
-            scanList = scanList.filter(code => code !== qr_code);
-
-            scanList.unshift(qr_code);
-
-            scanList = scanList.slice(0, 10);
-
-            await AsyncStorage.setItem(key, JSON.stringify(scanList));
+            list.unshift(qr);
+            await AsyncStorage.setItem(
+                key,
+                JSON.stringify(list.slice(0, 10))
+            );
         } catch (e) {
             console.error("Error storing recent scan:", e);
         }
     };
 
+    const loadFromLocalRecords = async () => {
+        if (!qr_code) return false;
+
+        try {
+            const { data, date } = await loadRecordsFromCache(fiscalYear);
+            if (!data) return false;
+
+            const found = data.find(
+                (r: any) => r.QRCODE === qr_code
+            );
+
+            if (!found) return false;
+
+            setRecord(found);
+            setLogs(found.logs ?? null);
+            setLastUpdated(date);
+
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
+
+    const fetchFromApi = async () => {
+        if (!network?.isOnline) return;
+
+        try {
+            setLoading(true);
+
+            const response = await addToLogs(qr_code);
+            if (!response) return;
+
+            setRecord(response.record);
+            setLogs(response.logs);
+
+            await storeRecentScan(qr_code);
+        } catch (err) {
+            handleApiError(err, "Failed to fetch logs");
+        } finally {
+            setLoading(false);
+        }
+    };
 
 
     useEffect(() => {
-        const fetchLogs = async () => {
-            if (!network?.isOnline) return;
-            try {
-                setLoading(true);
-                const response = await addToLogs(qr_code);
-                if (!response) return;
+        if (!qr_code) return;
 
-                await storeRecentScan(qr_code)
-
-                setRecord(response.record);
-                setLogs(response.logs);
-            } catch (err) {
-                console.error('Error fetching logs:', err);
-                handleApiError(err, 'Failed to fetch logs');
-            } finally {
-                setLoading(false);
-            }
+        const init = async () => {
+            await loadFromLocalRecords();
+            fetchFromApi();
         };
 
-        fetchLogs();
-    }, [qr_code, network]);
-
+        init();
+    }, [qr_code, fiscalYear, network?.isOnline]);
 
     return (
-        <TrackingContext.Provider value={{ record, logs, loading }}>
+        <TrackingContext.Provider
+            value={{
+                record,
+                logs,
+                loading,
+                lastUpdated,
+            }}
+        >
             {children}
         </TrackingContext.Provider>
     );

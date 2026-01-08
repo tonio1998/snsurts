@@ -18,13 +18,14 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
+let logoutFn: (() => void) | null = null;
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 	const [user, setUser] = useState<{ id: string; email: string } | null>(null);
 	const [roles, setRoles] = useState([]);
 	const [permissions, setPermissions] = useState([]);
 	const [isAuthLoading, setIsAuthLoading] = useState(true);
-	
+	const [googleAccessToken, setGoogleAccessToken] = useState(null);
+
 	const [isBiometricSupported, setIsBiometricSupported] = useState(false);
 	const [biometricEnabled, setBiometricEnabled] = useState(false);
 	const biometricEnabledRef = useRef(false);
@@ -49,6 +50,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 				const flagKey = `biometricEnabled:${user.email}`;
 				const flag = await AsyncStorage.getItem(flagKey);
+
+				const AYFROM = await AsyncStorage.getItem('AYFrom');
+				const AYTO = await AsyncStorage.getItem('AYTo');
+				const SEM = await AsyncStorage.getItem('Semester');
+
+
+				if(!AYFROM || !AYTO || !SEM){
+					await AsyncStorage.setItem('AYFrom', '2025');
+					await AsyncStorage.setItem('AYTo', '2026');
+					await AsyncStorage.setItem('Semester', '1');
+				}
 
 				const isSupported = result.supported;
 				const isEnabled = flag === 'true';
@@ -75,14 +87,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	}, [user?.email]);
 
 
-
-
 	const loginAuth = async (userData: { user: any; token: string }) => {
 		try {
-			await AsyncStorage.setItem('roles', JSON.stringify(userData.roles));
-			await AsyncStorage.setItem('permissions', JSON.stringify(userData.permissions));
-			setRoles(userData.roles)
-			setPermissions(userData.permissions)
+			await AsyncStorage.setItem('EncryptedUserID', userData?.EncryptedUserID);
+			await AsyncStorage.setItem('roles', JSON.stringify(userData?.roles));
+			await AsyncStorage.setItem('permissions', JSON.stringify(userData?.permissions));
+			setRoles(userData?.roles)
+			setPermissions(userData?.permissions)
 			await Keychain.setGenericPassword(JSON.stringify(userData.user), userData.token);
 			setUser(userData.user);
 			await setAuthToken(userData.token);
@@ -98,6 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 			await AsyncStorage.removeItem('roles');
 			await AsyncStorage.removeItem('permissions');
 			await AsyncStorage.removeItem('isLoggedIn');
+			await AsyncStorage.removeItem('googleAccessToken');
 			// await Keychain.resetGenericPassword();
 			// await Keychain.resetGenericPassword({ service: 'fgHEMIS-biometric' });
 			// setBiometricEnabled(false);
@@ -140,8 +152,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 			return false;
 			}
 
+			const EncryptedUserID = await AsyncStorage.getItem('EncryptedUserID');
+
 			const secureData = {
 			user,
+				EncryptedUserID,
 			token: storedToken,
 				roles: roles,
 				permissions: permissions
@@ -205,7 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 		}
 	};
 
-
+	logoutFn = logout;
 
 	const value = useMemo(() => ({
 		user,
@@ -230,4 +245,8 @@ export const useAuth = () => {
 	const context = useContext(AuthContext);
 	if (!context) throw new Error('useAuth must be used inside AuthProvider');
 	return context;
+};
+
+export const forceLogout = () => {
+	if (logoutFn) logoutFn();
 };

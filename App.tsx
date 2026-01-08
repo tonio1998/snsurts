@@ -36,6 +36,8 @@ import ScannerValidator from './src/screens/Scanner/ScannerValidator.tsx';
 import {GestureHandlerRootView} from "react-native-gesture-handler";
 import AcademicYearScreen from "./src/Shared/AcademicYearScreen.tsx";
 import {FiscalYearProvider} from "./src/context/FiscalYearContext.tsx";
+import {useAccess} from "./src/hooks/useAccess.ts";
+import AnauthorizedScreen from "./src/Shared/Anauthorized.tsx";
 const Stack = createNativeStackNavigator();
 LogBox.ignoreLogs(['Text strings must be rendered within a <Text> component']);
 
@@ -50,6 +52,7 @@ const UnauthenticatedStack = () => (
 
 const AppNavigator = () => {
     const { user } = useAuth();
+    const { hasRole } = useAccess();
     const [splashVisible, setSplashVisible] = useState(true);
 
     useEffect(() => {
@@ -138,13 +141,65 @@ const AppNavigator = () => {
                     <GestureHandlerRootView style={{ flex: 1 }}>
                         <NavigationContainer ref={navigationRef} onReady={tryFlushPendingNavigation}>
                             <Stack.Navigator screenOptions={{ headerShown: false }}>
-                                <Stack.Screen name="MainTabs" component={BottomTabNav} />
-                                <Stack.Screen name="ScanQRDetails" component={TrackingBottomTabNav} />
-                                <Stack.Screen name="AddRecord" component={AddRecordScreen} />
-                                <Stack.Screen name="ScannerValidator" component={ScannerValidator} />
-                                <Stack.Screen name="Profile" component={UserProfileScreen} />
-                                <Stack.Screen name="AcademicYear" component={AcademicYearScreen} />
+                                <Stack.Screen
+                                    name="MainTabs"
+                                    component={BottomTabNav}
+                                />
+                                <Stack.Screen
+                                    name="ScanQRDetails"
+                                    component={TrackingBottomTabNav}
+                                />
+                                <Stack.Screen
+                                    name="AddRecord"
+                                    component={AddRecordScreen}
+                                />
+                                <Stack.Screen
+                                    name="ScannerValidator"
+                                    component={ScannerValidator}
+                                />
+                                <Stack.Screen
+                                    name="Profile"
+                                    component={UserProfileScreen}
+                                />
+                                <Stack.Screen
+                                    name="AcademicYear"
+                                    component={AcademicYearScreen}
+                                />
+                                {/*{hasRole('STUD') ? (*/}
+                                {/*    <Stack.Screen*/}
+                                {/*        name="Unauthorized"*/}
+                                {/*        component={AnauthorizedScreen}*/}
+                                {/*    />*/}
+                                {/*) : (*/}
+                                {/*    <>*/}
+                                {/*        <Stack.Screen*/}
+                                {/*            name="MainTabs"*/}
+                                {/*            component={BottomTabNav}*/}
+                                {/*        />*/}
+                                {/*        <Stack.Screen*/}
+                                {/*            name="ScanQRDetails"*/}
+                                {/*            component={TrackingBottomTabNav}*/}
+                                {/*        />*/}
+                                {/*        <Stack.Screen*/}
+                                {/*            name="AddRecord"*/}
+                                {/*            component={AddRecordScreen}*/}
+                                {/*        />*/}
+                                {/*        <Stack.Screen*/}
+                                {/*            name="ScannerValidator"*/}
+                                {/*            component={ScannerValidator}*/}
+                                {/*        />*/}
+                                {/*        <Stack.Screen*/}
+                                {/*            name="Profile"*/}
+                                {/*            component={UserProfileScreen}*/}
+                                {/*        />*/}
+                                {/*        <Stack.Screen*/}
+                                {/*            name="AcademicYear"*/}
+                                {/*            component={AcademicYearScreen}*/}
+                                {/*        />*/}
+                                {/*    </>*/}
+                                {/*)}*/}
                             </Stack.Navigator>
+
                         </NavigationContainer>
                     </GestureHandlerRootView>
                 </AccessProvider>
