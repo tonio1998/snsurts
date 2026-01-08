@@ -27,11 +27,13 @@ import { getGreeting } from '../utils/greetings';
 import { useFiscalYear } from '../context/FiscalYearContext';
 import { getDashData, searchRecords } from '../api/modules/logsApi';
 import { handleApiError } from '../utils/errorHandler';
-import {loadDashboardFromCache, saveDashboardToCache} from "../utils/cache/dashboardCache.ts";
-import {LastUpdatedBadge} from "../components/common/LastUpdatedBadge";
-import {useAccess} from "../hooks/useAccess.ts";
-import UnauthorizedView from "../components/UnauthorizedView.tsx";
-import {getAllApiCalls} from "../api/api.ts";
+import {
+	loadDashboardFromCache,
+	saveDashboardToCache,
+} from '../utils/cache/dashboardCache';
+import { LastUpdatedBadge } from '../components/common/LastUpdatedBadge';
+import { useAccess } from '../hooks/useAccess';
+import UnauthorizedView from '../components/UnauthorizedView';
 
 const HomeScreen = ({ navigation }) => {
 	const { user } = useAuth();
@@ -53,6 +55,7 @@ const HomeScreen = ({ navigation }) => {
 
 	const isSearchMode = query.trim().length > 0;
 
+	/* -------------------- Animations -------------------- */
 	useEffect(() => {
 		Animated.timing(searchAnim, {
 			toValue: isSearchMode ? 1 : 0,
@@ -60,8 +63,9 @@ const HomeScreen = ({ navigation }) => {
 			easing: Easing.out(Easing.cubic),
 			useNativeDriver: true,
 		}).start();
-	}, [query]);
+	}, [isSearchMode]);
 
+	/* -------------------- Dashboard -------------------- */
 	const loadDashboard = async (force = false) => {
 		if (!user?.id) return;
 
@@ -69,7 +73,10 @@ const HomeScreen = ({ navigation }) => {
 			setLoading(true);
 
 			if (!force) {
-				const { data, date } = await loadDashboardFromCache(user.id, fiscalYear);
+				const { data, date } = await loadDashboardFromCache(
+					user.id,
+					fiscalYear
+				);
 				if (data) {
 					setDashboardData(data);
 					setLastUpdated(date);
@@ -80,10 +87,12 @@ const HomeScreen = ({ navigation }) => {
 			const fresh = await getDashData(fiscalYear);
 			setDashboardData(fresh);
 
-			const savedAt = await saveDashboardToCache(user.id, fiscalYear, fresh);
+			const savedAt = await saveDashboardToCache(
+				user.id,
+				fiscalYear,
+				fresh
+			);
 			setLastUpdated(savedAt);
-
-			console.log("🔍 Dashboard data loaded", fresh);
 		} catch (err) {
 			handleApiError(err);
 		} finally {
@@ -92,13 +101,8 @@ const HomeScreen = ({ navigation }) => {
 		}
 	};
 
-
 	useEffect(() => {
 		loadDashboard();
-
-
-		// const apiLogs = getAllApiCalls();
-		// console.log('ALL API CALLS in HomeScreen:', apiLogs);
 	}, [fiscalYear]);
 
 	const onRefresh = () => {
@@ -106,26 +110,33 @@ const HomeScreen = ({ navigation }) => {
 		loadDashboard(true);
 	};
 
-	const handleSearch = (text: string) => {
-		setQuery(text);
-		if (searchTimer.current) clearTimeout(searchTimer.current);
-
-		if (!text.trim()) {
+	const executeSearch = async () => {
+		if (!query.trim()) {
 			setResults([]);
 			return;
 		}
 
-		searchTimer.current = setTimeout(async () => {
-			try {
-				setSearching(true);
-				const res = await searchRecords(text);
-				setResults(res?.data ?? []);
-			} catch (err) {
-				handleApiError(err);
-			} finally {
-				setSearching(false);
-			}
-		}, 400);
+		try {
+			setSearching(true);
+			const res = await searchRecords(query);
+			setResults(res?.data ?? []);
+		} catch (err) {
+			handleApiError(err);
+		} finally {
+			setSearching(false);
+		}
+	};
+
+
+	const handleSearchChange = (text: string) => {
+		setQuery(text);
+	};
+
+	const handleSearchSubmit = () => {
+		if (searchTimer.current) {
+			clearTimeout(searchTimer.current);
+		}
+		executeSearch(query);
 	};
 
 
@@ -138,29 +149,50 @@ const HomeScreen = ({ navigation }) => {
 			<CustomHomeHeader />
 			<SafeAreaView style={globalStyles.safeArea}>
 				<View style={{ flex: 1 }}>
+					{/* -------------------- Header -------------------- */}
 					<View style={globalStyles.p_3}>
 						<CText fontSize={22} fontStyle="B">
 							{getGreeting()}, {getDisplayName(user?.name)}
 						</CText>
-						<LastUpdatedBadge date={lastUpdated} onReload={onRefresh}/>
+
+						<LastUpdatedBadge
+							date={lastUpdated}
+							onReload={onRefresh}
+						/>
 
 						<View style={styles.searchBox}>
 							<Icon name="search-outline" size={18} color="#888" />
+
 							<TextInput
 								placeholder="Search QR code, description, sender…"
 								value={query}
-								onChangeText={handleSearch}
+								onChangeText={handleSearchChange}
+								onSubmitEditing={handleSearchSubmit}
+								returnKeyType="search"
 								style={styles.searchInput}
 								placeholderTextColor="#ccc"
 							/>
+
 							{query.length > 0 && (
-								<TouchableOpacity onPress={() => setQuery('')}>
+								<TouchableOpacity
+									onPress={() => {
+										setQuery('');
+										setResults([]);
+									}}
+									style={{ marginRight: 15}}
+								>
 									<Icon name="close" size={22} color="#aaa" />
 								</TouchableOpacity>
 							)}
+
+							<TouchableOpacity onPress={handleSearchSubmit}>
+								<Icon name="arrow-forward-circle" size={26} color={theme.colors.light.primary} />
+							</TouchableOpacity>
 						</View>
+
 					</View>
 
+					{/* -------------------- Search Overlay -------------------- */}
 					{isSearchMode && (
 						<Animated.View
 							style={[
@@ -169,10 +201,11 @@ const HomeScreen = ({ navigation }) => {
 									opacity: searchAnim,
 									transform: [
 										{
-											translateY: searchAnim.interpolate({
-												inputRange: [0, 1],
-												outputRange: [20, 0],
-											}),
+											translateY:
+												searchAnim.interpolate({
+													inputRange: [0, 1],
+													outputRange: [20, 0],
+												}),
 										},
 									],
 								},
@@ -180,29 +213,51 @@ const HomeScreen = ({ navigation }) => {
 						>
 							{searching ? (
 								<View style={styles.searchLoading}>
-									<ShimmerPlaceHolder style={{ height: 60 }} />
+									<ShimmerPlaceHolder
+										style={{ height: 60 }}
+									/>
 								</View>
 							) : (
 								<FlatList
 									data={results}
-									keyExtractor={i => i.id.toString()}
+									keyExtractor={i =>
+										i.id.toString()
+									}
 									renderItem={({ item }) => (
 										<TouchableOpacity
 											style={styles.searchRow}
 											onPress={() =>
-												navigation.navigate('ScanQRDetails', {
-													qr_code: item.QRCODE,
-												})
+												navigation.navigate(
+													'ScanQRDetails',
+													{
+														qr_code:
+														item.QRCODE,
+													}
+												)
 											}
 										>
 											<Icon
 												name="document-text-outline"
 												size={18}
-												color={theme.colors.light.primary}
+												color={
+													theme.colors.light
+														.primary
+												}
 											/>
-											<View style={{ marginLeft: 12 }}>
-												<CText fontStyle="B">{item.Description}</CText>
-												<CText style={styles.meta}>{item.QRCODE}</CText>
+											<View
+												style={{
+													marginLeft: 12,
+													flex: 1,
+												}}
+											>
+												<CText fontStyle="B">
+													{item.Description}
+												</CText>
+												<CText
+													style={styles.meta}
+												>
+													{item.QRCODE}
+												</CText>
 											</View>
 										</TouchableOpacity>
 									)}
@@ -211,6 +266,7 @@ const HomeScreen = ({ navigation }) => {
 						</Animated.View>
 					)}
 
+					{/* -------------------- Main Content -------------------- */}
 					<ScrollView
 						refreshControl={
 							<RefreshControl
@@ -218,7 +274,9 @@ const HomeScreen = ({ navigation }) => {
 								onRefresh={onRefresh}
 							/>
 						}
-						contentContainerStyle={{ paddingBottom: 120 }}
+						contentContainerStyle={{
+							paddingBottom: 120,
+						}}
 					>
 						<View style={styles.heroWrap}>
 							<LinearGradient
@@ -228,42 +286,19 @@ const HomeScreen = ({ navigation }) => {
 								]}
 								style={styles.heroCard}
 							>
-								<CText style={styles.heroLabel}>Total Logs</CText>
-								<CText style={styles.heroValue}>
-									{formatNumber(dashboardData?.totalLogs || 0)}
+								<CText style={styles.heroLabel}>
+									Total Logs
 								</CText>
-
-								<View style={styles.heroMeta}>
-									<CText style={styles.heroMetaText}>
-										{dashboardData?.stats?.Incoming} Incoming
-									</CText>
-									<CText style={styles.heroMetaDot}>•</CText>
-									<CText style={styles.heroMetaText}>
-										{dashboardData?.stats?.Outgoing} Outgoing
-									</CText>
-									<CText style={styles.heroMetaDot}>•</CText>
-									<CText style={styles.heroMetaText}>
-										{dashboardData?.stats?.Done} Done
-									</CText>
-								</View>
+								<CText style={styles.heroValue}>
+									{formatNumber(
+										dashboardData?.totalLogs || 0
+									)}
+								</CText>
 							</LinearGradient>
 						</View>
 
-						<View style={styles.actionStrip}>
-							<Action
-								icon="scan-outline"
-								label="Scan"
-								onPress={() => navigation.navigate('Scan')}
-							/>
-							<Action
-								icon="add-outline"
-								label="New"
-								onPress={() => navigation.navigate('AddRecord')}
-							/>
-						</View>
-
 						<View style={styles.section}>
-							<CText fontStyle="B" fontSize={16} style={{ marginBottom: 10 }}>
+							<CText fontStyle="B" fontSize={16}>
 								Recent Activity
 							</CText>
 
@@ -272,35 +307,57 @@ const HomeScreen = ({ navigation }) => {
 									key={item.id}
 									style={styles.activityRow}
 									onPress={() =>
-										navigation.navigate('ScanQRDetails', {
-											qr_code: item.record?.QRCODE,
-										})
+										navigation.navigate(
+											'ScanQRDetails',
+											{
+												qr_code:
+												item.record?.QRCODE,
+											}
+										)
 									}
 								>
 									<Icon
 										name="document-text-outline"
 										size={18}
-										color={theme.colors.light.primary}
+										color={
+											theme.colors.light.primary
+										}
 									/>
-									<View style={{ flex: 1, marginLeft: 12 }}>
-										<CText fontStyle="B" numberOfLines={1}>
-											{item.record?.Description}
+									<View
+										style={{
+											flex: 1,
+											marginLeft: 12,
+										}}
+									>
+										<CText
+											fontStyle="B"
+											numberOfLines={1}
+										>
+											{
+												item.record
+													?.Description
+											}
 										</CText>
 										<CText style={styles.meta}>
-											{formatDate(item.created_at)}
+											{formatDate(
+												item.created_at
+											)}
 										</CText>
 									</View>
-									<CText style={styles.status(item.TrailStatus)}>
-										{item.TrailStatus}
-									</CText>
 								</TouchableOpacity>
 							))}
 						</View>
 
 						{network?.isConnected === false && (
 							<View style={styles.offline}>
-								<Icon name="cloud-offline-outline" size={16} color="#fff" />
-								<CText style={styles.offlineText}>Offline mode</CText>
+								<Icon
+									name="cloud-offline-outline"
+									size={16}
+									color="#fff"
+								/>
+								<CText style={styles.offlineText}>
+									Offline mode
+								</CText>
 							</View>
 						)}
 					</ScrollView>
@@ -310,14 +367,8 @@ const HomeScreen = ({ navigation }) => {
 	);
 };
 
-const Action = ({ icon, label, onPress }) => (
-	<TouchableOpacity style={styles.action} onPress={onPress}>
-		<Icon name={icon} size={20} color={theme.colors.light.primary} />
-		<CText fontStyle="B">{label}</CText>
-	</TouchableOpacity>
-);
-
 export default HomeScreen;
+
 
 const styles = StyleSheet.create({
 	subtle: { color: '#777', marginTop: 4 },

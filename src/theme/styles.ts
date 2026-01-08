@@ -265,6 +265,7 @@ export const globalStyles = StyleSheet.create({
     flex1:{
         flex: 1,
     },
+
     safeArea: {
         flex: 1,
         // paddingBottom: 50,
@@ -815,7 +816,13 @@ export const globalStyles = StyleSheet.create({
         alignItems: 'center',
         marginLeft: 'auto',
     },
-    
+
+    justifyCenter: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+
+
     submitBtn: {
         position: 'absolute',
         right: '5%',
