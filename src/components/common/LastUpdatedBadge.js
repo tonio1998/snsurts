@@ -9,10 +9,11 @@ export const LastUpdatedBadge = ({ date, onReload, style }) => {
 
     const formatted = date
         ? new Date(date).toLocaleString('en-US', {
-            month: 'short',
+            month: 'long',
             day: 'numeric',
             hour: 'numeric',
             minute: '2-digit',
+            year: 'numeric',
         })
         : '';
 

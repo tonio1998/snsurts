@@ -21,6 +21,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useAlert } from '../../components/CAlert';
 import { theme } from '../../theme';
 import { CText } from '../../components/common/CText';
+import UnauthorizedView from "../../components/UnauthorizedView.tsx";
+import {hasRole} from "../../utils/accessControl.ts";
 
 const SCAN_SIZE = 260;
 const CORNER = 26;
@@ -55,6 +57,7 @@ export default function ScanScreen() {
         };
         req();
     }, []);
+
 
     useEffect(() => {
         Animated.loop(
@@ -125,6 +128,10 @@ export default function ScanScreen() {
                 <Text>Camera permission required</Text>
             </View>
         );
+    }
+
+    if (!hasRole('STUD')) {
+        return <UnauthorizedView />;
     }
 
     return (

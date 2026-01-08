@@ -25,20 +25,15 @@ import { useTracking } from '../../context/TrackingContext.tsx';
 import { useDeviceLocation } from '../../hooks/useDeviceLocation.ts';
 import LeafletMap from '../../components/maps/LeafletMap.tsx';
 
-/* ---------------- CONSTANTS ---------------- */
 
 const MAP_MAX_HEIGHT = 260;
 const MAP_MIN_HEIGHT = 90;
-
-/* ---------------- SCREEN ---------------- */
 
 export default function ScanQRDetailsScreen() {
     const navigation = useNavigation();
     const { record, logs } = useTracking();
 
     const TransactionID = record?.id;
-
-    console.log(record);
 
     const {
         location,
@@ -112,17 +107,17 @@ export default function ScanQRDetailsScreen() {
             return Alert.alert('Error', 'Missing transaction reference.');
         }
 
-        if (!locationGranted) {
-            return Alert.alert('Location Required', 'Please allow location permission.');
-        }
+        // if (!locationGranted) {
+        //     return Alert.alert('Location Required', 'Please allow location permission.');
+        // }
 
-        if (!location) {
-            return Alert.alert(
-                'Location Not Ready',
-                locationError || 'Waiting for GPS signal.',
-                [{ text: 'Retry', onPress: retryLocation }]
-            );
-        }
+        // if (!location) {
+        //     return Alert.alert(
+        //         'Location Not Ready',
+        //         locationError || 'Waiting for GPS signal.',
+        //         [{ text: 'Retry', onPress: retryLocation }]
+        //     );
+        // }
 
         const isOutgoing = selected === 1;
         const isReturn = selected === 2;
@@ -153,8 +148,8 @@ export default function ScanQRDetailsScreen() {
 
             await api.post('/rts/log/add', payload);
 
-            Vibration.vibrate(80);
-            Alert.alert('Success', 'Document logged successfully.');
+            Vibration.vibrate(600);
+            // Alert.alert('Success', 'Document logged successfully.');
             navigation.navigate('History' as never);
         } catch (error) {
             handleApiError(error, 'log submission');

@@ -19,13 +19,19 @@ import CustomHomeHeader from "../../components/layout/CustomHomeHeader";
 import { theme } from "../../theme";
 import { CText } from "../../components/common/CText";
 import { formatDate } from "../../utils/dateFormatter";
-import { useCachedList } from "../../utils/cache/useCachedList";
 import { useFiscalYear } from "../../context/FiscalYearContext";
 import { getRecords } from "../../api/modules/logsApi";
 import IosBottomSheet from "../../components/modals/IosBottomSheet";
+import { useCachedListAsync } from "../../utils/cache/useCachedListAsync";
+import {hasRole} from "../../utils/accessControl.ts";
+import UnauthorizedView from "../../components/UnauthorizedView.tsx";
+import {useAuth} from "../../context/AuthContext.tsx";
+import {useAccess} from "../../hooks/useAccess.ts";
 
 export default function RecordsScreen({ navigation }) {
     const { fiscalYear } = useFiscalYear();
+    const { user } = useAuth();
+    const { hasRole } = useAccess();
 
     const [search, setSearch] = useState("");
     const [showAdvanced, setShowAdvanced] = useState(false);
@@ -43,8 +49,7 @@ export default function RecordsScreen({ navigation }) {
         refreshing,
         refresh,
         lastFetchedAt,
-    } = useCachedList({
-        cacheKey: "records_cache",
+    } = useCachedListAsync({
         fiscalYear,
         fetchFn: getRecords,
     });
@@ -128,6 +133,10 @@ export default function RecordsScreen({ navigation }) {
         </TouchableOpacity>
     ), [navigation]);
 
+    if (!hasRole('STUD')) {
+        return <UnauthorizedView />;
+    }
+
     return (
         <SafeAreaView style={globalStyles.safeArea}>
             <CustomHomeHeader />
@@ -155,7 +164,10 @@ export default function RecordsScreen({ navigation }) {
 
                 {loading && fullData.length === 0 ? (
                     <View style={styles.initialLoader}>
-                        <ActivityIndicator size="large" color={theme.colors.light.primary} />
+                        <ActivityIndicator
+                            size="large"
+                            color={theme.colors.light.primary}
+                        />
                     </View>
                 ) : (
                     <FlatList
@@ -208,7 +220,11 @@ export default function RecordsScreen({ navigation }) {
                 <CText style={styles.sectionLabel}>Linked QR</CText>
 
                 <View style={styles.segment}>
-                    {[{ label: "All", value: null }, { label: "Linked", value: true }, { label: "Unlinked", value: false }].map(opt => (
+                    {[
+                        { label: "All", value: null },
+                        { label: "Linked", value: true },
+                        { label: "Unlinked", value: false },
+                    ].map(opt => (
                         <TouchableOpacity
                             key={String(opt.value)}
                             style={[
@@ -230,7 +246,7 @@ export default function RecordsScreen({ navigation }) {
                         onPress={() => setDateType("from")}
                     >
                         <CText>
-                            {fromDate ? formatDate(fromDate, 'date') : "From"}
+                            {fromDate ? formatDate(fromDate, "date") : "From"}
                         </CText>
                     </TouchableOpacity>
 
@@ -239,7 +255,7 @@ export default function RecordsScreen({ navigation }) {
                         onPress={() => setDateType("to")}
                     >
                         <CText>
-                            {toDate ? formatDate(toDate, 'date') : "To"}
+                            {toDate ? formatDate(toDate, "date") : "To"}
                         </CText>
                     </TouchableOpacity>
                 </View>
@@ -292,7 +308,12 @@ const styles = StyleSheet.create({
         height: 46,
         marginBottom: 14,
     },
-    searchInput: { flex: 1, marginHorizontal: 10, fontSize: 15, color: "#000" },
+    searchInput: {
+        flex: 1,
+        marginHorizontal: 10,
+        fontSize: 15,
+        color: "#000",
+    },
     card: {
         backgroundColor: theme.colors.light.card,
         borderRadius: 16,
@@ -332,7 +353,11 @@ const styles = StyleSheet.create({
     },
     empty: { alignItems: "center", marginTop: 60 },
     emptyText: { marginTop: 10, color: "#999" },
-    initialLoader: { flex: 1, justifyContent: "center", alignItems: "center" },
+    initialLoader: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+    },
     sectionLabel: { fontSize: 13, color: "#888", marginBottom: 8 },
     segment: {
         flexDirection: "row",
@@ -341,7 +366,12 @@ const styles = StyleSheet.create({
         padding: 4,
         marginBottom: 20,
     },
-    segmentItem: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center" },
+    segmentItem: {
+        flex: 1,
+        paddingVertical: 10,
+        borderRadius: 10,
+        alignItems: "center",
+    },
     segmentActive: { backgroundColor: "#fff", elevation: 2 },
     dateRow: { flexDirection: "row", gap: 12, marginBottom: 24 },
     dateBox: {

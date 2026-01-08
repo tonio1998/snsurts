@@ -78,6 +78,7 @@ export const uploadRecordAttachment = async (formData) => {
 };
 
 export const getDashData = async (fiscalYear) => {
+	console.log(":fiscalYear", fiscalYear)
 	const response = await api.get('/rts/dashboard/', {
 		params: { fiscalYear }
 	});

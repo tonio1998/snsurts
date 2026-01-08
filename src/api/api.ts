@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_BASE_URL } from '../../env.ts';
+import {API_BASE_URL, APP_ID} from '../../env.ts';
 import axios from 'axios';
 import { handleApiError } from "../utils/errorHandler.ts";
 
@@ -9,6 +9,7 @@ const api = axios.create({
 		"Content-Type": "application/json",
 		Accept: "application/json",
 		"ngrok-skip-browser-warning": "true",
+		"X-App-ID": APP_ID,
 	},
 });
 
@@ -24,9 +25,16 @@ export const setAuthToken = async (token: string | null) => {
 
 api.interceptors.request.use(async (config) => {
 	const token = await AsyncStorage.getItem("mobile");
-	if (token) config.headers.Authorization = `Bearer ${token}`;
+
+	if (token) {
+		config.headers.Authorization = `Bearer ${token}`;
+	}
+
+	config.headers["X-App-ID"] = APP_ID;
+
 	return config;
 });
+
 
 api.interceptors.response.use(
 	(response) => response,
