@@ -64,10 +64,10 @@ api.interceptors.request.use(
 		const lock = requestLock[key];
 
 		if (lock.inFlight && now - lock.lastTime < REQUEST_WINDOW_MS) {
-			ToastAndroid.show(
-				'Fetching data, please wait.',
-				ToastAndroid.SHORT
-			);
+			// ToastAndroid.show(
+			// 	'Fetching data, please wait.',
+			// 	ToastAndroid.SHORT
+			// );
 			return Promise.reject({
 				isDuplicate: true,
 				message: 'Duplicate request blocked.',
@@ -83,12 +83,12 @@ api.interceptors.request.use(
 				method,
 				url,
 				count: 0,
-				timestamps: [],
+				timestamps: 0,
 			};
 		}
 
 		apiCallRegistry[key].count += 1;
-		apiCallRegistry[key].timestamps.push(new Date().toISOString());
+		apiCallRegistry[key].timestamps = new Date().toISOString();
 
 		console.log('[API LOG]', apiCallRegistry[key]);
 		console.trace(`[API TRACE] ${key}`);
