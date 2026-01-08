@@ -55,7 +55,6 @@ const HomeScreen = ({ navigation }) => {
 
 	const isSearchMode = query.trim().length > 0;
 
-	/* -------------------- Animations -------------------- */
 	useEffect(() => {
 		Animated.timing(searchAnim, {
 			toValue: isSearchMode ? 1 : 0,
@@ -65,7 +64,6 @@ const HomeScreen = ({ navigation }) => {
 		}).start();
 	}, [isSearchMode]);
 
-	/* -------------------- Dashboard -------------------- */
 	const loadDashboard = async (force = false) => {
 		if (!user?.id) return;
 
@@ -92,6 +90,8 @@ const HomeScreen = ({ navigation }) => {
 				fiscalYear,
 				fresh
 			);
+
+			console.log(fresh)
 			setLastUpdated(savedAt);
 		} catch (err) {
 			handleApiError(err);
@@ -149,10 +149,9 @@ const HomeScreen = ({ navigation }) => {
 			<CustomHomeHeader />
 			<SafeAreaView style={globalStyles.safeArea}>
 				<View style={{ flex: 1 }}>
-					{/* -------------------- Header -------------------- */}
 					<View style={globalStyles.p_3}>
 						<CText fontSize={22} fontStyle="B">
-							{getGreeting()}, {getDisplayName(user?.name)}
+							{getGreeting()}, {getDisplayName(user?.name)}!
 						</CText>
 
 						<LastUpdatedBadge
@@ -192,7 +191,6 @@ const HomeScreen = ({ navigation }) => {
 
 					</View>
 
-					{/* -------------------- Search Overlay -------------------- */}
 					{isSearchMode && (
 						<Animated.View
 							style={[
@@ -266,7 +264,6 @@ const HomeScreen = ({ navigation }) => {
 						</Animated.View>
 					)}
 
-					{/* -------------------- Main Content -------------------- */}
 					<ScrollView
 						refreshControl={
 							<RefreshControl
@@ -286,19 +283,45 @@ const HomeScreen = ({ navigation }) => {
 								]}
 								style={styles.heroCard}
 							>
-								<CText style={styles.heroLabel}>
-									Total Logs
-								</CText>
+								<View style={styles.bgCircleLarge} />
+								<View style={styles.bgCircleSmall} />
+								<CText style={styles.heroLabel}>Overview</CText>
+
 								<CText style={styles.heroValue}>
-									{formatNumber(
-										dashboardData?.totalLogs || 0
-									)}
+									{formatNumber(dashboardData?.totalLogs || 0)}
 								</CText>
+								<CText style={styles.heroSub}>Total Logs</CText>
+
+								<View style={styles.heroDivider} />
+
+								<View style={styles.heroStatsRow}>
+									<View style={styles.heroStat}>
+										<CText style={styles.heroStatValue}>
+											{formatNumber(dashboardData?.stats?.Incoming || 0)}
+										</CText>
+										<CText style={styles.heroStatLabel}>Incoming</CText>
+									</View>
+
+									<View style={styles.heroStat}>
+										<CText style={styles.heroStatValue}>
+											{formatNumber(dashboardData?.stats?.Done || 0)}
+										</CText>
+										<CText style={styles.heroStatLabel}>Completed</CText>
+									</View>
+
+									<View style={styles.heroStat}>
+										<CText style={styles.heroStatValue}>
+											{formatNumber(dashboardData?.stats?.Outgoing || 0)}
+										</CText>
+										<CText style={styles.heroStatLabel}>Outgoing</CText>
+									</View>
+								</View>
 							</LinearGradient>
 						</View>
 
+
 						<View style={styles.section}>
-							<CText fontStyle="B" fontSize={16}>
+							<CText fontStyle="B" fontSize={18} style={{ marginBottom: 15}}>
 								Recent Activity
 							</CText>
 
@@ -371,6 +394,25 @@ export default HomeScreen;
 
 
 const styles = StyleSheet.create({
+	bgCircleLarge: {
+		position: 'absolute',
+		width: 220,
+		height: 220,
+		borderRadius: 110,
+		backgroundColor: 'rgba(255,255,255,0.15)',
+		top: -80,
+		right: -60,
+	},
+
+	bgCircleSmall: {
+		position: 'absolute',
+		width: 120,
+		height: 120,
+		borderRadius: 60,
+		backgroundColor: 'rgba(255,255,255,0.2)',
+		bottom: -40,
+		left: -30,
+	},
 	subtle: { color: '#777', marginTop: 4 },
 	searchBox: {
 		flexDirection: 'row',
@@ -459,4 +501,53 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 	},
 	offlineText: { color: '#fff', marginLeft: 6 },
+	heroWrap: {
+		marginHorizontal: 16,
+		marginBottom: 16,
+	},
+	heroCard: {
+		borderRadius: 18,
+		padding: 20,
+	},
+	heroLabel: {
+		color: '#fff',
+		fontSize: 13,
+		opacity: 0.85,
+	},
+	heroValue: {
+		color: '#fff',
+		fontSize: 42,
+		fontWeight: '700',
+		marginTop: 4,
+	},
+	heroSub: {
+		color: '#fff',
+		fontSize: 13,
+		opacity: 0.8,
+	},
+	heroDivider: {
+		height: 1,
+		backgroundColor: 'rgba(255,255,255,0.25)',
+		marginVertical: 14,
+	},
+	heroStatsRow: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+	},
+	heroStat: {
+		alignItems: 'center',
+		flex: 1,
+	},
+	heroStatValue: {
+		color: '#fff',
+		fontSize: 18,
+		fontWeight: '700',
+	},
+	heroStatLabel: {
+		color: '#fff',
+		fontSize: 12,
+		opacity: 0.8,
+		marginTop: 2,
+	},
+
 });
