@@ -76,8 +76,6 @@ export default function HistoryScreen() {
                     TransactionID,
                 });
 
-                console.log("res: ", res)
-
                 const data = res?.current ?? [];
                 setHistory(data);
 
@@ -124,6 +122,8 @@ export default function HistoryScreen() {
                 ),
         [history]
     );
+
+    const hasTrailPoints = trailPoints.length > 0;
 
     const mapHeight = scrollY.interpolate({
         inputRange: [0, MAP_MAX_HEIGHT - MAP_MIN_HEIGHT],
@@ -220,7 +220,9 @@ export default function HistoryScreen() {
                 >
                     <Animated.ScrollView
                         contentContainerStyle={{
-                            paddingTop: MAP_MAX_HEIGHT,
+                            paddingTop: hasTrailPoints
+                                ? MAP_MAX_HEIGHT
+                                : 50,
                         }}
                         refreshControl={
                             <RefreshControl
@@ -260,28 +262,25 @@ export default function HistoryScreen() {
                             )}
                         </View>
 
-                        <Animated.View
-                            style={[
-                                styles.mapContainer,
-                                {
-                                    height: mapHeight,
-                                    opacity: mapOpacity,
-                                },
-                            ]}
-                        >
-                            <LeafletMap
-                                points={trailPoints}
-                                showPolyline
-                                autoFit
-                                height="100%"
-                                loading={loading}
-                                error={
-                                    !trailPoints.length
-                                        ? 'No valid location data'
-                                        : null
-                                }
-                            />
-                        </Animated.View>
+                        {hasTrailPoints && (
+                            <Animated.View
+                                style={[
+                                    styles.mapContainer,
+                                    {
+                                        height: mapHeight,
+                                        opacity: mapOpacity,
+                                    },
+                                ]}
+                            >
+                                <LeafletMap
+                                    points={trailPoints}
+                                    showPolyline
+                                    autoFit
+                                    height="100%"
+                                    loading={loading}
+                                />
+                            </Animated.View>
+                        )}
                     </Animated.ScrollView>
                 </KeyboardAvoidingView>
             </SafeAreaView>
