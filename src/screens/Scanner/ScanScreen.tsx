@@ -130,7 +130,7 @@ export default function ScanScreen() {
         );
     }
 
-    if (!hasRole('STUD')) {
+    if (hasRole('STUD')) {
         return <UnauthorizedView />;
     }
 

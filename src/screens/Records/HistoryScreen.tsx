@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import {
     SafeAreaView,
     View,
@@ -13,21 +19,24 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-import { CText } from '../../components/common/CText.tsx';
-import { globalStyles as gstyle } from '../../theme/styles.ts';
+import { CText } from '../../components/common/CText';
+import { globalStyles as gstyle } from '../../theme/styles';
 import { theme } from '../../theme';
 
-import { useTracking } from '../../context/TrackingContext.tsx';
-import { useAuth } from '../../context/AuthContext.tsx';
-import { getTrackingHistory } from '../../api/modules/logsApi.ts';
-import { handleApiError } from '../../utils/errorHandler.ts';
+import { useTracking } from '../../context/TrackingContext';
+import { useAuth } from '../../context/AuthContext';
+import { getTrackingHistory } from '../../api/modules/logsApi';
+import { handleApiError } from '../../utils/errorHandler';
 import { formatDate } from '../../utils/dateFormatter';
-import LeafletMap, { MapPoint } from '../../components/maps/LeafletMap.tsx';
+import LeafletMap, { MapPoint } from '../../components/maps/LeafletMap';
 
+import {
+    loadTrackingHistoryFromCache,
+    saveTrackingHistoryToCache,
+} from '../../utils/cache/trackingHistoryCache';
 
 const MAP_MAX_HEIGHT = 300;
 const MAP_MIN_HEIGHT = 90;
-
 
 export default function HistoryScreen() {
     const { record } = useTracking();
@@ -39,45 +48,82 @@ export default function HistoryScreen() {
     const [loading, setLoading] = useState(true);
 
     const scrollY = useRef(new Animated.Value(0)).current;
+    const loadingRef = useRef(false);
+    const hasLoadedRef = useRef(false);
 
+    const fetchHistory = useCallback(
+        async (force = false) => {
+            if (!user?.id || !TransactionID) return;
+            if (loadingRef.current) return;
 
-    const fetchHistory = useCallback(async () => {
-        if (!user?.id || !TransactionID) return;
+            loadingRef.current = true;
+            setLoading(true);
 
-        setLoading(true);
-        try {
-            const res = await getTrackingHistory({ page: 1, TransactionID });
-            setHistory(res.current?.data || []);
-        } catch (err) {
-            handleApiError(err, 'Unable to load tracking history.');
-        } finally {
-            setLoading(false);
-        }
-    }, [user?.id, TransactionID]);
+            try {
+                if (!force) {
+                    const cached = await loadTrackingHistoryFromCache(
+                        user.id,
+                        TransactionID
+                    );
+                    if (Array.isArray(cached)) {
+                        setHistory(cached);
+                        return;
+                    }
+                }
+
+                const res = await getTrackingHistory({
+                    page: 1,
+                    TransactionID,
+                });
+
+                console.log("res: ", res)
+
+                const data = res?.current ?? [];
+                setHistory(data);
+
+                await saveTrackingHistoryToCache(
+                    user.id,
+                    TransactionID,
+                    data
+                );
+            } catch (err) {
+                handleApiError(err, 'Unable to load tracking history.');
+            } finally {
+                loadingRef.current = false;
+                setLoading(false);
+            }
+        },
+        [user?.id, TransactionID]
+    );
 
     useEffect(() => {
-        fetchHistory();
+        if (hasLoadedRef.current) return;
+        hasLoadedRef.current = true;
+        fetchHistory(false);
     }, [fetchHistory]);
 
-
-    const trailPoints: MapPoint[] = history
-        .filter(i => i.Latitude !== "0" && i.Longitude !== "0")
-        .map(i => ({
-            latitude: Number(i.Latitude),
-            longitude: Number(i.Longitude),
-            label: i.created_at,
-        }))
-        .sort(
-            (a, b) =>
-                new Date(a.label ?? '').getTime() -
-                new Date(b.label ?? '').getTime()
-        );
-
-
-    useEffect(() => {
-        console.log("trailPoints", history);
-    }, [trailPoints]);
-
+    const trailPoints: MapPoint[] = useMemo(
+        () =>
+            history
+                .filter(
+                    i =>
+                        i.Latitude !== '0' &&
+                        i.Longitude !== '0' &&
+                        i.Latitude &&
+                        i.Longitude
+                )
+                .map(i => ({
+                    latitude: Number(i.Latitude),
+                    longitude: Number(i.Longitude),
+                    label: i.CreatedAt,
+                }))
+                .sort(
+                    (a, b) =>
+                        new Date(a.label ?? '').getTime() -
+                        new Date(b.label ?? '').getTime()
+                ),
+        [history]
+    );
 
     const mapHeight = scrollY.interpolate({
         inputRange: [0, MAP_MAX_HEIGHT - MAP_MIN_HEIGHT],
@@ -90,7 +136,6 @@ export default function HistoryScreen() {
         outputRange: [1, 0.85],
         extrapolate: 'clamp',
     });
-
 
     const getTrailDescription = (
         status: string,
@@ -120,9 +165,15 @@ export default function HistoryScreen() {
                 <Icon
                     name={index === 0 ? 'radio-button-on' : 'checkmark-circle'}
                     size={22}
-                    color={index === 0 ? theme.colors.light.primary : '#6c757d'}
+                    color={
+                        index === 0
+                            ? theme.colors.light.primary
+                            : '#6c757d'
+                    }
                 />
-                {index < history.length - 1 && <View style={styles.verticalLine} />}
+                {index < history.length - 1 && (
+                    <View style={styles.verticalLine} />
+                )}
             </View>
 
             <View style={styles.timelineContent}>
@@ -140,13 +191,13 @@ export default function HistoryScreen() {
                 </Text>
 
                 {item.CourierName && (
-                    <CText fontStyle="SB" fontSize={14} style={styles.forAction}>
+                    <CText fontStyle="SB" fontSize={14}>
                         Courier: {item.CourierName}
                     </CText>
                 )}
 
                 {item.forAction && (
-                    <CText fontStyle="SB" fontSize={17} style={styles.forAction}>
+                    <CText fontStyle="SB" fontSize={17}>
                         For: {item.forAction}
                     </CText>
                 )}
@@ -158,13 +209,11 @@ export default function HistoryScreen() {
         </View>
     );
 
-
     return (
         <>
             <StatusBar backgroundColor={theme.colors.light.primary} />
 
-            <SafeAreaView style={[gstyle.safeArea, {paddingTop: 0}]}>
-
+            <SafeAreaView style={[gstyle.safeArea, { paddingTop: 0 }]}>
                 <KeyboardAvoidingView
                     style={{ flex: 1 }}
                     behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -176,11 +225,17 @@ export default function HistoryScreen() {
                         refreshControl={
                             <RefreshControl
                                 refreshing={loading}
-                                onRefresh={fetchHistory}
+                                onRefresh={() => fetchHistory(true)}
                             />
                         }
                         onScroll={Animated.event(
-                            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                            [
+                                {
+                                    nativeEvent: {
+                                        contentOffset: { y: scrollY },
+                                    },
+                                },
+                            ],
                             { useNativeDriver: false }
                         )}
                         scrollEventThrottle={16}
@@ -191,7 +246,9 @@ export default function HistoryScreen() {
                                 <View style={gstyle.textcenter}>
                                     <ActivityIndicator
                                         size="large"
-                                        color={theme.colors.light.primary}
+                                        color={
+                                            theme.colors.light.primary
+                                        }
                                     />
                                 </View>
                             ) : history.length ? (
@@ -206,7 +263,10 @@ export default function HistoryScreen() {
                         <Animated.View
                             style={[
                                 styles.mapContainer,
-                                { height: mapHeight, opacity: mapOpacity },
+                                {
+                                    height: mapHeight,
+                                    opacity: mapOpacity,
+                                },
                             ]}
                         >
                             <LeafletMap
@@ -229,8 +289,6 @@ export default function HistoryScreen() {
     );
 }
 
-/* ---------------- STYLES ---------------- */
-
 const styles = StyleSheet.create({
     mapContainer: {
         position: 'absolute',
@@ -244,7 +302,6 @@ const styles = StyleSheet.create({
         borderTopRightRadius: 24,
         padding: 16,
         paddingBottom: 120,
-        // elevation: 8,
     },
     timelineItem: {
         flexDirection: 'row',

@@ -2,6 +2,27 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {API_BASE_URL, APP_ID} from '../../env.ts';
 import axios from 'axios';
 import { handleApiError } from "../utils/errorHandler.ts";
+import {ToastAndroid} from "react-native";
+
+type ApiCallLog = {
+	method?: string;
+	url?: string;
+	count: number;
+	timestamps: string[];
+};
+
+const apiCallRegistry: Record<string, ApiCallLog> = {};
+
+const REQUEST_WINDOW_MS = 1500;
+
+const requestLock: Record<
+	string,
+	{
+		lastTime: number;
+		inFlight: boolean;
+	}
+> = {};
+
 
 const api = axios.create({
 	baseURL: API_BASE_URL,
@@ -23,18 +44,64 @@ export const setAuthToken = async (token: string | null) => {
 	}
 };
 
-api.interceptors.request.use(async (config) => {
-	const token = await AsyncStorage.getItem("mobile");
+api.interceptors.request.use(
+	async (config) => {
+		const token = await AsyncStorage.getItem("mobile");
+		if (token) config.headers.Authorization = `Bearer ${token}`;
 
-	if (token) {
-		config.headers.Authorization = `Bearer ${token}`;
-	}
+		const method = config.method?.toUpperCase();
+		const url = config.url;
+		const key = `${method} ${url}`;
+		const now = Date.now();
 
-	config.headers["X-App-ID"] = APP_ID;
+		if (!requestLock[key]) {
+			requestLock[key] = {
+				lastTime: 0,
+				inFlight: false,
+			};
+		}
 
-	return config;
-});
+		const lock = requestLock[key];
 
+		if (lock.inFlight && now - lock.lastTime < REQUEST_WINDOW_MS) {
+			ToastAndroid.show(
+				'Fetching data, please wait.',
+				ToastAndroid.SHORT
+			);
+			return Promise.reject({
+				isDuplicate: true,
+				message: 'Duplicate request blocked.',
+				config,
+			});
+		}
+
+		lock.inFlight = true;
+		lock.lastTime = now;
+
+		if (!apiCallRegistry[key]) {
+			apiCallRegistry[key] = {
+				method,
+				url,
+				count: 0,
+				timestamps: [],
+			};
+		}
+
+		apiCallRegistry[key].count += 1;
+		apiCallRegistry[key].timestamps.push(new Date().toISOString());
+
+		console.log('[API LOG]', apiCallRegistry[key]);
+		console.trace(`[API TRACE] ${key}`);
+
+		return config;
+	},
+	(error) => Promise.reject(error)
+);
+
+
+export const getAllApiCalls = () => {
+	return apiCallRegistry;
+};
 
 api.interceptors.response.use(
 	(response) => response,

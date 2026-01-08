@@ -31,6 +31,7 @@ import {loadDashboardFromCache, saveDashboardToCache} from "../utils/cache/dashb
 import {LastUpdatedBadge} from "../components/common/LastUpdatedBadge";
 import {useAccess} from "../hooks/useAccess.ts";
 import UnauthorizedView from "../components/UnauthorizedView.tsx";
+import {getAllApiCalls} from "../api/api.ts";
 
 const HomeScreen = ({ navigation }) => {
 	const { user } = useAuth();
@@ -94,6 +95,10 @@ const HomeScreen = ({ navigation }) => {
 
 	useEffect(() => {
 		loadDashboard();
+
+
+		// const apiLogs = getAllApiCalls();
+		// console.log('ALL API CALLS in HomeScreen:', apiLogs);
 	}, [fiscalYear]);
 
 	const onRefresh = () => {
@@ -124,7 +129,7 @@ const HomeScreen = ({ navigation }) => {
 	};
 
 
-	if (!hasRole('STUD')) {
+	if (hasRole('STUD')) {
 		return <UnauthorizedView />;
 	}
 

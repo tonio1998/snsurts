@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, {
+    createContext,
+    useContext,
+    useEffect,
+    useState,
+    useCallback,
+    useMemo,
+} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type FiscalYearContextType = {
@@ -11,29 +18,45 @@ const FiscalYearContext = createContext<FiscalYearContextType | undefined>(
     undefined
 );
 
-export function FiscalYearProvider({ children }) {
-    const [fiscalYear, setFiscalYearState] = useState('');
-    const [loading, setLoading] = useState(true);
+export function FiscalYearProvider({ children }: { children: React.ReactNode }) {
+    const [fiscalYear, setFiscalYearState] = useState<string>('');
+    const [loading, setLoading] = useState<boolean>(true);
 
     useEffect(() => {
+        let mounted = true;
+
         (async () => {
             const storedYear =
                 (await AsyncStorage.getItem('FiscalYear')) ??
                 String(new Date().getFullYear());
-            setFiscalYearState(storedYear);
-            setLoading(false);
+
+            if (mounted) {
+                setFiscalYearState(storedYear);
+                setLoading(false);
+            }
         })();
+
+        return () => {
+            mounted = false;
+        };
     }, []);
 
-    const setFiscalYear = async (year: string) => {
+    const setFiscalYear = useCallback(async (year: string) => {
         await AsyncStorage.setItem('FiscalYear', year);
         setFiscalYearState(year);
-    };
+    }, []);
+
+    const value = useMemo(
+        () => ({
+            fiscalYear,
+            setFiscalYear,
+            loading,
+        }),
+        [fiscalYear, loading]
+    );
 
     return (
-        <FiscalYearContext.Provider
-            value={{ fiscalYear, setFiscalYear, loading }}
-        >
+        <FiscalYearContext.Provider value={value}>
             {children}
         </FiscalYearContext.Provider>
     );
