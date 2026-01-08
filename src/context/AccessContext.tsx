@@ -74,6 +74,8 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
 
         // Fetch once from server
         syncAccess();
+
+        console.log(roles)
     }, [user?.id, syncAccess]);
 
     const can = useCallback(
@@ -90,6 +92,7 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
         (roleList: string[]) => roleList.some(r => roles.includes(r)),
         [roles]
     );
+
 
     const value = useMemo(
         () => ({

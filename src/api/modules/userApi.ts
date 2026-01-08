@@ -5,16 +5,12 @@ export const getUserDetails = async (id: number) => {
     return response.data;
 };
 
-export const getUsers = async ({ page = 1, search = '', role = '' }) => {
-	const response = await api.get('/user', {
-		params: {
-			page,
-			search,
-			role
-		}
-	});
-	return response;
+export const getUsers = async () => {
+	const response = await api.get('/users');
+	return response.data ?? [];
 };
+
+
 
 
 export const updateUser = async (id: number, data: any) => {

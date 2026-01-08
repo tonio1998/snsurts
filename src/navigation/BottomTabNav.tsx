@@ -11,6 +11,8 @@ import HomeScreen from '../Shared/HomeScreen';
 import ScanScreen from '../screens/Scanner/ScanScreen';
 import RecordsScreen from '../screens/Records/RecordsScreen';
 import AddDocumentScreen from '../screens/Records/AddRecordScreen';
+import EmployeeScreen from "../screens/Employee/EmployeeScreen.tsx";
+import {useAccess} from "../hooks/useAccess.ts";
 
 const Tab = createBottomTabNavigator();
 const colors = theme.colors.light;
@@ -33,6 +35,7 @@ function useOrientation() {
 export default function BottomTabNav() {
 	const isLandscape = useOrientation();
 	const insets = useSafeAreaInsets();
+	const { hasRole, hasAnyRole } = useAccess();
 
 	const TAB_HEIGHT = isLandscape ? 52 : 64;
 
@@ -48,6 +51,9 @@ export default function BottomTabNav() {
 				return focused ? 'qr-code' : 'qr-code-outline';
 			case 'Add':
 				return focused ? 'add-circle' : 'add-circle-outline';
+			case 'Employee':
+				return focused ? 'people' : 'people-outline';
+
 			default:
 				return 'ellipse-outline';
 		}
@@ -93,6 +99,10 @@ export default function BottomTabNav() {
 			<Tab.Screen name="Home" component={HomeScreen} />
 			<Tab.Screen name="Scan" component={ScanScreen} />
 			<Tab.Screen name="Record" component={RecordsScreen} />
+
+			{hasAnyRole(["FISEmployee", "ACAD"]) && (
+				<Tab.Screen name={'Employee'} component={EmployeeScreen} />
+			)}
 			{/*<Tab.Screen name="Add" component={AddDocumentScreen} />*/}
 		</Tab.Navigator>
 	);
