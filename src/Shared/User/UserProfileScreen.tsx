@@ -61,6 +61,8 @@ export default function ProfileScreen({ navigation }) {
 			if (storedRoles) setRoles(JSON.parse(storedRoles));
 
 			const cachedData = await AsyncStorage.getItem('user_data_' + user?.id);
+
+			console.log(roles)
 			if (cachedData) {
 				setUserData(JSON.parse(cachedData));
 			} else {

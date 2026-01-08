@@ -50,9 +50,7 @@ const HomeScreen = ({ navigation }) => {
 	const [results, setResults] = useState<any[]>([]);
 	const [searching, setSearching] = useState(false);
 
-	const searchTimer = useRef<any>(null);
 	const searchAnim = useRef(new Animated.Value(0)).current;
-
 	const isSearchMode = query.trim().length > 0;
 
 	useEffect(() => {
@@ -82,7 +80,7 @@ const HomeScreen = ({ navigation }) => {
 				}
 			}
 
-			const fresh = await getDashData(fiscalYear);
+			const fresh = await getDashData({ fiscalYear });
 			setDashboardData(fresh);
 
 			const savedAt = await saveDashboardToCache(
@@ -91,8 +89,9 @@ const HomeScreen = ({ navigation }) => {
 				fresh
 			);
 
-			console.log(fresh)
 			setLastUpdated(savedAt);
+
+			console.log("fresh: ", fresh)
 		} catch (err) {
 			handleApiError(err);
 		} finally {
@@ -127,18 +126,9 @@ const HomeScreen = ({ navigation }) => {
 		}
 	};
 
-
-	const handleSearchChange = (text: string) => {
-		setQuery(text);
-	};
-
 	const handleSearchSubmit = () => {
-		if (searchTimer.current) {
-			clearTimeout(searchTimer.current);
-		}
-		executeSearch(query);
+		executeSearch();
 	};
-
 
 	if (hasRole('STUD')) {
 		return <UnauthorizedView />;
@@ -160,16 +150,16 @@ const HomeScreen = ({ navigation }) => {
 						/>
 
 						<View style={styles.searchBox}>
-							<Icon name="search-outline" size={18} color="#888" />
+							<Icon name="search-outline" size={18} color="#999" />
 
 							<TextInput
-								placeholder="Search QR code, description, sender…"
+								placeholder="Search records, QR code, sender…"
 								value={query}
-								onChangeText={handleSearchChange}
+								onChangeText={setQuery}
 								onSubmitEditing={handleSearchSubmit}
 								returnKeyType="search"
 								style={styles.searchInput}
-								placeholderTextColor="#ccc"
+								placeholderTextColor="#999"
 							/>
 
 							{query.length > 0 && (
@@ -178,17 +168,15 @@ const HomeScreen = ({ navigation }) => {
 										setQuery('');
 										setResults([]);
 									}}
-									style={{ marginRight: 15}}
 								>
-									<Icon name="close" size={22} color="#aaa" />
+									<Icon
+										name="close-circle"
+										size={18}
+										color="#bbb"
+									/>
 								</TouchableOpacity>
 							)}
-
-							<TouchableOpacity onPress={handleSearchSubmit}>
-								<Icon name="arrow-forward-circle" size={26} color={theme.colors.light.primary} />
-							</TouchableOpacity>
 						</View>
-
 					</View>
 
 					{isSearchMode && (
@@ -202,17 +190,22 @@ const HomeScreen = ({ navigation }) => {
 											translateY:
 												searchAnim.interpolate({
 													inputRange: [0, 1],
-													outputRange: [20, 0],
+													outputRange: [40, 0],
 												}),
 										},
 									],
 								},
 							]}
 						>
+							<View style={styles.searchHandle} />
+
 							{searching ? (
 								<View style={styles.searchLoading}>
 									<ShimmerPlaceHolder
-										style={{ height: 60 }}
+										style={{
+											height: 60,
+											borderRadius: 12,
+										}}
 									/>
 								</View>
 							) : (
@@ -234,20 +227,22 @@ const HomeScreen = ({ navigation }) => {
 												)
 											}
 										>
-											<Icon
-												name="document-text-outline"
-												size={18}
-												color={
-													theme.colors.light
-														.primary
-												}
-											/>
 											<View
-												style={{
-													marginLeft: 12,
-													flex: 1,
-												}}
+												style={
+													styles.searchIconWrap
+												}
 											>
+												<Icon
+													name="document-text-outline"
+													size={18}
+													color={
+														theme.colors
+															.light.primary
+													}
+												/>
+											</View>
+
+											<View style={{ flex: 1 }}>
 												<CText fontStyle="B">
 													{item.Description}
 												</CText>
@@ -259,6 +254,15 @@ const HomeScreen = ({ navigation }) => {
 											</View>
 										</TouchableOpacity>
 									)}
+									ListEmptyComponent={
+										<View
+											style={styles.emptySearch}
+										>
+											<CText>
+												No results found
+											</CText>
+										</View>
+									}
 								/>
 							)}
 						</Animated.View>
@@ -278,50 +282,78 @@ const HomeScreen = ({ navigation }) => {
 						<View style={styles.heroWrap}>
 							<LinearGradient
 								colors={[
-									theme.colors.light.primary_light,
 									theme.colors.light.primary,
+									theme.colors.light.primary_dark,
 								]}
 								style={styles.heroCard}
 							>
 								<View style={styles.bgCircleLarge} />
 								<View style={styles.bgCircleSmall} />
-								<CText style={styles.heroLabel}>Overview</CText>
 
-								<CText style={styles.heroValue}>
-									{formatNumber(dashboardData?.totalLogs || 0)}
-								</CText>
-								<CText style={styles.heroSub}>Total Logs</CText>
+								<View style={globalStyles.cardRow}>
+									<CText style={styles.heroLabel}>Overview</CText>
+									<View style={globalStyles.cardRow}>
+										<CText style={styles.heroLabel}>Avg TAT (hrs) </CText>
+										<CText fontSize={20} style={{ color: '#fff'}} fontStyle={'SB'}>{dashboardData?.avgTatHours}</CText>
+									</View>
+								</View>
+
+								<View style={styles.heroTopRow}>
+									<View style={styles.heroTopItem}>
+										<CText style={styles.heroValue}>
+											{formatNumber(dashboardData?.totalLogs || 0)}
+										</CText>
+										<CText style={styles.heroSub}>Total Logs</CText>
+									</View>
+
+									<View style={styles.heroTopItem}>
+										<CText style={styles.heroValue}>
+											{formatNumber(
+												dashboardData?.stats?.totalCount || 0
+											)}
+										</CText>
+										<CText style={styles.heroSub}>Total Documents</CText>
+									</View>
+								</View>
 
 								<View style={styles.heroDivider} />
 
+								{/* STATUS COUNTS */}
 								<View style={styles.heroStatsRow}>
-									<View style={styles.heroStat}>
-										<CText style={styles.heroStatValue}>
-											{formatNumber(dashboardData?.stats?.Incoming || 0)}
-										</CText>
-										<CText style={styles.heroStatLabel}>Incoming</CText>
-									</View>
-
-									<View style={styles.heroStat}>
-										<CText style={styles.heroStatValue}>
-											{formatNumber(dashboardData?.stats?.Done || 0)}
-										</CText>
-										<CText style={styles.heroStatLabel}>Completed</CText>
-									</View>
-
-									<View style={styles.heroStat}>
-										<CText style={styles.heroStatValue}>
-											{formatNumber(dashboardData?.stats?.Outgoing || 0)}
-										</CText>
-										<CText style={styles.heroStatLabel}>Outgoing</CText>
-									</View>
+									{[
+										{
+											label: 'Incoming',
+											value: dashboardData?.stats?.Incoming,
+										},
+										{
+											label: 'Completed',
+											value: dashboardData?.stats?.Done,
+										},
+										{
+											label: 'Outgoing',
+											value: dashboardData?.stats?.Outgoing,
+										},
+										{
+											label: 'Overdue',
+											value: dashboardData?.stats?.Overdue,
+										},
+									].map((item, idx) => (
+										<View key={idx} style={styles.heroStat}>
+											<CText style={styles.heroStatValue}>
+												{formatNumber(item.value || 0)}
+											</CText>
+											<CText style={styles.heroStatLabel}>
+												{item.label}
+											</CText>
+										</View>
+									))}
 								</View>
 							</LinearGradient>
 						</View>
 
 
 						<View style={styles.section}>
-							<CText fontStyle="B" fontSize={18} style={{ marginBottom: 15}}>
+							<CText fontStyle="B" fontSize={18}>
 								Recent Activity
 							</CText>
 
@@ -334,7 +366,8 @@ const HomeScreen = ({ navigation }) => {
 											'ScanQRDetails',
 											{
 												qr_code:
-												item.record?.QRCODE,
+												item.record
+													?.QRCODE,
 											}
 										)
 									}
@@ -378,7 +411,9 @@ const HomeScreen = ({ navigation }) => {
 									size={16}
 									color="#fff"
 								/>
-								<CText style={styles.offlineText}>
+								<CText
+									style={styles.offlineText}
+								>
 									Offline mode
 								</CText>
 							</View>
@@ -392,53 +427,56 @@ const HomeScreen = ({ navigation }) => {
 
 export default HomeScreen;
 
-
 const styles = StyleSheet.create({
-	bgCircleLarge: {
-		position: 'absolute',
-		width: 220,
-		height: 220,
-		borderRadius: 110,
-		backgroundColor: 'rgba(255,255,255,0.15)',
-		top: -80,
-		right: -60,
+	heroTopRow: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		marginTop: 10,
+	},
+	heroTopItem: {
+		flex: 1,
 	},
 
-	bgCircleSmall: {
-		position: 'absolute',
-		width: 120,
-		height: 120,
-		borderRadius: 60,
-		backgroundColor: 'rgba(255,255,255,0.2)',
-		bottom: -40,
-		left: -30,
-	},
-	subtle: { color: '#777', marginTop: 4 },
 	searchBox: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		backgroundColor: '#fff',
-		borderRadius: 14,
-		paddingHorizontal: 12,
-		paddingVertical: 10,
+		borderRadius: 16,
+		paddingHorizontal: 14,
+		paddingVertical: 12,
 		marginTop: 14,
-		elevation: 2,
+		elevation: 3,
 	},
-	searchInput: { flex: 1, marginHorizontal: 8, color: '#000' },
+	searchInput: {
+		flex: 1,
+		marginHorizontal: 8,
+		fontSize: 14,
+		color: '#000',
+	},
+
 	searchOverlay: {
 		position: 'absolute',
-		top: '25%',
+		top: '22%',
 		left: 0,
 		right: 0,
 		bottom: 0,
 		backgroundColor: theme.colors.light.card,
-		borderTopLeftRadius: 20,
-		borderTopRightRadius: 20,
-		padding: 10,
-		elevation: 10,
-		zIndex: 10,
+		borderTopLeftRadius: 24,
+		borderTopRightRadius: 24,
+		zIndex: 20,
 	},
-	searchLoading: { paddingHorizontal: 16, paddingTop: 20 },
+	searchHandle: {
+		width: 40,
+		height: 4,
+		backgroundColor: '#ccc',
+		borderRadius: 2,
+		alignSelf: 'center',
+		marginVertical: 10,
+	},
+	searchLoading: {
+		paddingHorizontal: 16,
+		paddingTop: 20,
+	},
 	searchRow: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -449,64 +487,31 @@ const styles = StyleSheet.create({
 		marginBottom: 10,
 		elevation: 1,
 	},
-	heroWrap: { marginHorizontal: 16, marginBottom: 16 },
-	heroCard: { borderRadius: 16, padding: 20 },
-	heroLabel: { color: '#fff', fontSize: 13, opacity: 0.85 },
-	heroValue: {
-		color: '#fff',
-		fontSize: 42,
-		fontWeight: '700',
-		marginVertical: 6,
-	},
-	heroMeta: { flexDirection: 'row', alignItems: 'center' },
-	heroMetaText: { color: '#fff', fontSize: 13, opacity: 0.85 },
-	heroMetaDot: { color: '#fff', marginHorizontal: 8, opacity: 0.6 },
-	actionStrip: {
-		flexDirection: 'row',
-		marginHorizontal: 16,
-		backgroundColor: '#fff',
-		borderRadius: 16,
-		elevation: 2,
-		marginBottom: 18,
-	},
-	action: { flex: 1, alignItems: 'center', paddingVertical: 14 },
-	section: { paddingHorizontal: 16 },
-	activityRow: {
-		flexDirection: 'row',
+	searchIconWrap: {
+		width: 36,
+		height: 36,
+		borderRadius: 18,
+		backgroundColor: '#F3F6FA',
 		alignItems: 'center',
-		backgroundColor: '#fff',
-		borderRadius: 14,
-		padding: 14,
-		marginBottom: 10,
-		elevation: 1,
-	},
-	meta: { fontSize: 12, color: '#777', marginTop: 2 },
-	status: (status: string) => ({
-		fontSize: 12,
-		fontWeight: '600',
-		color:
-			status === 'Done'
-				? theme.colors.light.success
-				: status === 'Incoming'
-					? theme.colors.light.info
-					: theme.colors.light.warning,
-	}),
-	offline: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		backgroundColor: theme.colors.light.danger,
-		margin: 16,
-		padding: 10,
-		borderRadius: 10,
 		justifyContent: 'center',
+		marginRight: 12,
 	},
-	offlineText: { color: '#fff', marginLeft: 6 },
+	emptySearch: {
+		alignItems: 'center',
+		marginTop: 40,
+	},
+	meta: {
+		fontSize: 12,
+		color: '#777',
+		marginTop: 2,
+	},
+
 	heroWrap: {
 		marginHorizontal: 16,
 		marginBottom: 16,
 	},
 	heroCard: {
-		borderRadius: 18,
+		borderRadius: 20,
 		padding: 20,
 	},
 	heroLabel: {
@@ -535,8 +540,8 @@ const styles = StyleSheet.create({
 		justifyContent: 'space-between',
 	},
 	heroStat: {
-		alignItems: 'center',
 		flex: 1,
+		alignItems: 'center',
 	},
 	heroStatValue: {
 		color: '#fff',
@@ -550,4 +555,49 @@ const styles = StyleSheet.create({
 		marginTop: 2,
 	},
 
+	section: {
+		paddingHorizontal: 16,
+	},
+	activityRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		backgroundColor: '#fff',
+		borderRadius: 14,
+		padding: 14,
+		marginTop: 12,
+		elevation: 1,
+	},
+
+	offline: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		backgroundColor: theme.colors.light.danger,
+		margin: 16,
+		padding: 10,
+		borderRadius: 10,
+		justifyContent: 'center',
+	},
+	offlineText: {
+		color: '#fff',
+		marginLeft: 6,
+	},
+
+	bgCircleLarge: {
+		position: 'absolute',
+		width: 220,
+		height: 220,
+		borderRadius: 110,
+		backgroundColor: 'rgba(255,255,255,0.1)',
+		top: -80,
+		right: -60,
+	},
+	bgCircleSmall: {
+		position: 'absolute',
+		width: 120,
+		height: 120,
+		borderRadius: 60,
+		backgroundColor: 'rgba(255,255,255,0.1)',
+		bottom: -40,
+		left: -30,
+	},
 });
