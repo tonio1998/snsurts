@@ -1,8 +1,15 @@
-import React, { createContext, useEffect, useState, useContext } from 'react';
+import React, {
+    createContext,
+    useEffect,
+    useState,
+    useContext,
+    useCallback,
+    useMemo,
+    useRef,
+} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { userAccessUpdate } from '../api/modules/userApi.ts';
-import {handleApiError} from "../utils/errorHandler.ts";
-import {useAuth} from "./AuthContext.tsx";
+import { userAccessUpdate } from '../api/modules/userApi';
+import { useAuth } from './AuthContext';
 
 type AccessContextType = {
     roles: string[];
@@ -15,53 +22,88 @@ type AccessContextType = {
 const AccessContext = createContext<AccessContextType | undefined>(undefined);
 
 export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
-    const [roles, setRoles] = useState<string[]>([]);
     const { user } = useAuth();
+
+    const [roles, setRoles] = useState<string[]>([]);
     const [permissions, setPermissions] = useState<string[]>([]);
 
-    const loadFromStorage = async () => {
-        const storedRoles = await AsyncStorage.getItem('roles');
-        const storedPermissions = await AsyncStorage.getItem('permissions');
-        // console.log('AccessProvider', storedRoles, storedPermissions);
-        if (storedRoles) setRoles(JSON.parse(storedRoles));
-        if (storedPermissions) setPermissions(JSON.parse(storedPermissions));
-    };
+    const lastSnapshotRef = useRef<string>('');
+
+    const syncAccess = useCallback(async () => {
+        if (!user?.id) return;
+
+        const data = await userAccessUpdate(user.id);
+
+        const snapshot = JSON.stringify({
+            roles: data.roles || [],
+            permissions: data.permissions || [],
+        });
+
+        // ⛔ Prevent unnecessary updates
+        if (snapshot === lastSnapshotRef.current) return;
+
+        lastSnapshotRef.current = snapshot;
+
+        setRoles(data.roles || []);
+        setPermissions(data.permissions || []);
+
+        await AsyncStorage.multiSet([
+            ['roles', JSON.stringify(data.roles || [])],
+            ['permissions', JSON.stringify(data.permissions || [])],
+        ]);
+    }, [user?.id]);
 
     useEffect(() => {
-        if(user){
-            const fetchAccess = async () => {
-                try {
-                    const res = await userAccessUpdate(user?.id);
-                    const data = res;
-                    setRoles([...data.roles || []]);
-                    setPermissions([...data.permissions || []]);
+        if (!user?.id) return;
 
-                    await AsyncStorage.setItem('roles', JSON.stringify(data.roles));
-                    await AsyncStorage.setItem('permissions', JSON.stringify(data.permissions));
-                } catch (err) {
-                    // console.warn('Access sync failed:', err);
-                    // handleApiError(err, "df")
-                }
-            };
+        // Load cached data immediately
+        (async () => {
+            const storedRoles =
+                JSON.parse((await AsyncStorage.getItem('roles')) || '[]');
+            const storedPermissions =
+                JSON.parse((await AsyncStorage.getItem('permissions')) || '[]');
 
-            fetchAccess();
-            const interval = setInterval(() => {
-                fetchAccess();
-                loadFromStorage();
-            }, 5 * 1000);
+            lastSnapshotRef.current = JSON.stringify({
+                roles: storedRoles,
+                permissions: storedPermissions,
+            });
 
-            return () => clearInterval(interval);
-        }
+            setRoles(storedRoles);
+            setPermissions(storedPermissions);
+        })();
 
-    }, []);
+        // Fetch once from server
+        syncAccess();
+    }, [user?.id, syncAccess]);
 
+    const can = useCallback(
+        (perm: string) => permissions.includes(perm),
+        [permissions]
+    );
 
-    const can = (perm: string) => permissions.includes(perm);
-    const hasRole = (role: string) => roles.includes(role);
-    const hasAnyRole = (roleList: string[]) => roleList.some(r => roles.includes(r));
+    const hasRole = useCallback(
+        (role: string) => roles.includes(role),
+        [roles]
+    );
+
+    const hasAnyRole = useCallback(
+        (roleList: string[]) => roleList.some(r => roles.includes(r)),
+        [roles]
+    );
+
+    const value = useMemo(
+        () => ({
+            roles,
+            permissions,
+            can,
+            hasRole,
+            hasAnyRole,
+        }),
+        [roles, permissions, can, hasRole, hasAnyRole]
+    );
 
     return (
-        <AccessContext.Provider value={{ roles, permissions, can, hasRole, hasAnyRole }}>
+        <AccessContext.Provider value={value}>
             {children}
         </AccessContext.Provider>
     );
@@ -69,6 +111,8 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
 
 export const useAccess = () => {
     const ctx = useContext(AccessContext);
-    if (!ctx) throw new Error('useAccess must be used inside AccessProvider');
+    if (!ctx) {
+        throw new Error('useAccess must be used inside AccessProvider');
+    }
     return ctx;
 };
