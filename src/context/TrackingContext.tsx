@@ -6,7 +6,7 @@ import { useAuth } from "./AuthContext";
 import { useFiscalYear } from "./FiscalYearContext";
 import { addToLogs } from "../api/modules/logsApi";
 import { handleApiError } from "../utils/errorHandler";
-import { loadRecordsFromCache } from "../utils/cache/recordsCache";
+import { loadRecordsFromCache } from "../services/cache/recordsCache";
 
 const TrackingContext = createContext(null);
 

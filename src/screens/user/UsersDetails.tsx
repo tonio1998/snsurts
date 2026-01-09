@@ -3,49 +3,68 @@ import {
     StyleSheet,
     View,
     Image,
+    ScrollView,
+    RefreshControl,
 } from "react-native";
-import React, {useEffect, useState} from "react";
-import Icon from "react-native-vector-icons/Ionicons";
+import React, { useEffect, useState } from "react";
+import LinearGradient from "react-native-linear-gradient";
 
 import { globalStyles } from "../../theme/styles";
-import CustomHomeHeader from "../../components/layout/CustomHomeHeader";
 import { theme } from "../../theme";
 import { CText } from "../../components/common/CText";
 import UnauthorizedView from "../../components/UnauthorizedView";
+import BackHeader from "../../components/layout/BackHeader";
+
 import { useAccess } from "../../hooks/useAccess";
 import { useAuth } from "../../context/AuthContext";
 import { useFiscalYear } from "../../context/FiscalYearContext";
-import {getUserDetails} from "../../api/modules/userApi.ts";
-import {handleApiError} from "../../utils/errorHandler.ts";
-import LinearGradient from "react-native-linear-gradient";
-import {formatNumber} from "../../utils/format.ts";
-import BackHeader from "../../components/layout/BackHeader.tsx";
-import {FILE_BASE_URL} from "../../../env.ts";
+
+import { getUserDetails } from "../../api/modules/userApi";
+import { handleApiError } from "../../utils/errorHandler";
+import { formatNumber } from "../../utils/format";
+
+import { FILE_BASE_URL } from "../../../env";
+import {loadUserFromCache, saveUserToCache} from "../../services/cache/userCache.ts";
 
 export default function UsersDetails({ route }) {
     const { user } = useAuth();
     const { hasRole } = useAccess();
     const { fiscalYear } = useFiscalYear();
 
-    const [userData, setUserData] = useState(null);
-
     const userDetails = route.params?.item;
 
-    const loadUserDetails = async (id) => {
+    const [userData, setUserData] = useState(null);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const loadUserDetails = async (id, force = false) => {
         try {
-            const data = await getUserDetails(id);
-            console.log(data);
-            setUserData(data);
+            if (!force) {
+                const cached = await loadUserFromCache(id);
+                if (cached) {
+                    setUserData(cached);
+                }
+            }
+
+            const fresh = await getUserDetails(id);
+            setUserData(fresh);
+            await saveUserToCache(id, fresh);
         } catch (e) {
-            handleApiError(e, 'Failed to load user details');
+            handleApiError(e, "Failed to load user details");
         }
     };
 
     useEffect(() => {
-        if (userDetails && user?.id) {
+        if (userDetails?.id && user?.id) {
             loadUserDetails(userDetails.id);
         }
-    }, [userDetails, user?.id]);
+    }, [userDetails?.id, user?.id]);
+
+    const onRefresh = async () => {
+        if (!userDetails?.id) return;
+        setRefreshing(true);
+        await loadUserDetails(userDetails.id, true);
+        setRefreshing(false);
+    };
 
     if (hasRole("STUD")) {
         return <UnauthorizedView />;
@@ -64,21 +83,30 @@ export default function UsersDetails({ route }) {
 
     return (
         <SafeAreaView style={globalStyles.safeArea}>
-            <BackHeader/>
+            <BackHeader />
 
-            <View style={styles.container}>
+            <ScrollView
+                style={styles.container}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={theme.colors.light.primary}
+                    />
+                }
+            >
                 <View style={styles.profileHeader}>
                     <Image
                         source={
-                            userDetails?.avatar
-                                ? { uri: `${FILE_BASE_URL}/${userDetails.profile_pic}`, cache: 'force-cache' }
+                            userDetails?.profile_pic
+                                ? { uri: `${FILE_BASE_URL}/${userDetails.profile_pic}`, cache: "force-cache" }
                                 : userDetails?.avatar
-                                    ? { uri: userDetails?.avatar, cache: 'force-cache' }
+                                    ? { uri: userDetails.avatar, cache: "force-cache" }
                                     : {
                                         uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                            userDetails?.name || 'User'
+                                            userDetails?.name || "User"
                                         )}&background=random`,
-                                        cache: 'force-cache'
+                                        cache: "force-cache",
                                     }
                         }
                         style={styles.profileAvatar}
@@ -93,85 +121,92 @@ export default function UsersDetails({ route }) {
                     </CText>
                 </View>
 
-                <View>
-                    <LinearGradient
-                        colors={[
-                            theme.colors.light.primary,
-                            theme.colors.light.primary_dark,
-                        ]}
-                        style={globalStyles.heroCard}
-                    >
-                        <View style={globalStyles.bgCircleLarge} />
-                        <View style={globalStyles.bgCircleSmall} />
+                <LinearGradient
+                    colors={[
+                        theme.colors.light.primary,
+                        theme.colors.light.primary_dark,
+                    ]}
+                    style={globalStyles.heroCard}
+                >
+                    <View style={globalStyles.bgCircleLarge} />
+                    <View style={globalStyles.bgCircleSmall} />
 
+                    <View style={globalStyles.cardRow}>
+                        <CText style={globalStyles.heroLabel}>Overview</CText>
                         <View style={globalStyles.cardRow}>
-                            <CText style={globalStyles.heroLabel}>Overview</CText>
-                            <View style={globalStyles.cardRow}>
-                                <CText style={globalStyles.heroLabel}>Avg TAT (hrs) </CText>
-                                <CText fontSize={20} style={{ color: '#fff'}} fontStyle={'SB'}>{userData?.avgTatHours}</CText>
-                            </View>
+                            <CText style={globalStyles.heroLabel}>
+                                Avg TAT (hrs)
+                            </CText>
+                            <CText
+                                fontSize={20}
+                                fontStyle={"SB"}
+                                style={{ color: "#fff" }}
+                            >
+                                {userData?.avgTatHours || 0}
+                            </CText>
+                        </View>
+                    </View>
+
+                    <View style={globalStyles.heroTopRow}>
+                        <View style={globalStyles.heroTopItem}>
+                            <CText
+                                style={globalStyles.heroValue}
+                                fontSize={30}
+                            >
+                                {formatNumber(userData?.totalLogs || 0)}
+                            </CText>
+                            <CText style={globalStyles.heroSub}>
+                                Total Logs
+                            </CText>
                         </View>
 
-                        <View style={globalStyles.heroTopRow}>
-                            <View style={globalStyles.heroTopItem}>
-                                <CText style={globalStyles.heroValue} fontSize={30}>
-                                    {formatNumber(userData?.totalLogs || 0)}
+                        <View style={globalStyles.heroTopItem}>
+                            <CText
+                                style={globalStyles.heroValue}
+                                fontSize={30}
+                            >
+                                {formatNumber(
+                                    userData?.stats?.totalCount || 0
+                                )}
+                            </CText>
+                            <CText style={globalStyles.heroSub}>
+                                Total Documents
+                            </CText>
+                        </View>
+                    </View>
+
+                    <View style={globalStyles.heroDivider} />
+
+                    <View style={globalStyles.heroStatsRow}>
+                        {[
+                            { label: "Incoming", value: userData?.stats?.Incoming },
+                            { label: "Completed", value: userData?.stats?.Done },
+                            { label: "Outgoing", value: userData?.stats?.Outgoing },
+                            { label: "Overdue", value: userData?.stats?.Overdue },
+                        ].map((item, idx) => (
+                            <View key={idx} style={globalStyles.heroStat}>
+                                <CText style={globalStyles.heroStatValue}>
+                                    {formatNumber(item.value || 0)}
                                 </CText>
-                                <CText style={globalStyles.heroSub}>Total Logs</CText>
-                            </View>
-
-                            <View style={globalStyles.heroTopItem}>
-                                <CText style={globalStyles.heroValue}  fontSize={30}>
-                                    {formatNumber(
-                                        userData?.stats?.totalCount || 0
-                                    )}
+                                <CText style={globalStyles.heroStatLabel}>
+                                    {item.label}
                                 </CText>
-                                <CText style={globalStyles.heroSub}>Total Documents</CText>
                             </View>
-                        </View>
+                        ))}
+                    </View>
+                </LinearGradient>
 
-                        <View style={globalStyles.heroDivider} />
+                <View style={[globalStyles.card, { marginHorizontal: 0 }]}>
+                    <CText style={styles.section} fontStyle={"SB"}>
+                        Account Details
+                    </CText>
 
-                        <View style={globalStyles.heroStatsRow}>
-                            {[
-                                {
-                                    label: 'Incoming',
-                                    value: userData?.stats?.Incoming,
-                                },
-                                {
-                                    label: 'Completed',
-                                    value: userData?.stats?.Done,
-                                },
-                                {
-                                    label: 'Outgoing',
-                                    value: userData?.stats?.Outgoing,
-                                },
-                                {
-                                    label: 'Overdue',
-                                    value: userData?.stats?.Overdue,
-                                },
-                            ].map((item, idx) => (
-                                <View key={idx} style={globalStyles.heroStat}>
-                                    <CText style={globalStyles.heroStatValue}>
-                                        {formatNumber(item.value || 0)}
-                                    </CText>
-                                    <CText style={globalStyles.heroStatLabel}>
-                                        {item.label}
-                                    </CText>
-                                </View>
-                            ))}
-                        </View>
-                    </LinearGradient>
-                </View>
-
-                <View style={[globalStyles.card, {marginHorizontal: 0}]}>
-                    <CText style={styles.section} fontStyle={'SB'}>Account Details</CText>
                     <View style={styles.infoRow}>
                         <CText>Email</CText>
                         <CText>{userDetails.email}</CText>
                     </View>
                 </View>
-            </View>
+            </ScrollView>
         </SafeAreaView>
     );
 }
@@ -182,12 +217,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         paddingTop: 10,
     },
-
     profileHeader: {
         alignItems: "center",
         marginBottom: 24,
     },
-
     profileAvatar: {
         width: 96,
         height: 96,
@@ -195,32 +228,21 @@ const styles = StyleSheet.create({
         backgroundColor: "#eee",
         marginBottom: 12,
     },
-
     profileName: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontWeight: "bold",
         textTransform: "uppercase",
     },
-
     profileEmail: {
         fontSize: 13,
         color: "#666",
         marginTop: 2,
     },
-
-    card: {
-        backgroundColor: theme.colors.light.card,
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 12,
-    },
-
     section: {
         fontSize: 14,
         fontWeight: "600",
         marginBottom: 12,
     },
-
     infoRow: {
         flexDirection: "row",
         justifyContent: "space-between",

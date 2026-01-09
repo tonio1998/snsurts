@@ -32,7 +32,7 @@ import { useAuth } from "../../context/AuthContext.tsx";
 import {
     loadUsersFromCache,
     saveUsersToCache,
-} from "../../utils/cache/usersCache.ts";
+} from "../../services/cache/usersCache.ts";
 import { handleApiError } from "../../utils/errorHandler.ts";
 import {getUsers} from "../../api/modules/userApi.ts";
 import {FILE_BASE_URL} from "../../../env.ts";

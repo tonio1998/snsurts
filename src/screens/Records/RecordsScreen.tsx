@@ -34,7 +34,7 @@ import { useAuth } from "../../context/AuthContext";
 import {
     loadRecordsFromCache,
     saveRecordsToCache,
-} from "../../utils/cache/recordsCache";
+} from "../../services/cache/recordsCache";
 import { handleApiError } from "../../utils/errorHandler.ts";
 
 const PAGE_SIZE = 25;
@@ -173,35 +173,37 @@ export default function RecordsScreen({ navigation }) {
 
     const renderItem = useCallback(
         ({ item }) => (
-            <TouchableOpacity
-                activeOpacity={0.9}
-                style={styles.card}
-                onPress={() =>
-                    item?.QRCODE &&
-                    navigation.navigate("ScanQRDetails", {
-                        qr_code: item.QRCODE,
-                    })
-                }
-            >
-                <CText fontStyle="SB" style={styles.title}>
-                    {item.Description}
-                </CText>
-
-                <CText style={styles.qr}>QR: {item.QRCODE}</CText>
-
-                <View style={styles.footer}>
-                    <CText style={styles.date}>
-                        {formatDate(item.created_at)}
+            <>
+                <TouchableOpacity
+                    activeOpacity={0.9}
+                    style={styles.card}
+                    onPress={() =>
+                        item?.QRCODE &&
+                        navigation.navigate("ScanQRDetails", {
+                            qr_code: item.QRCODE,
+                        })
+                    }
+                >
+                    <CText fontStyle="SB" style={styles.title}>
+                        {item.Description}
                     </CText>
 
-                    {item.ConnectQR && item.ConnectQR !== "0" && (
-                        <View style={styles.badge}>
-                            <Icon name="link" size={12} color="#fff" />
-                            <Text style={styles.badgeText}>Linked</Text>
-                        </View>
-                    )}
-                </View>
-            </TouchableOpacity>
+                    <CText style={styles.qr}>QR: {item.QRCODE}</CText>
+
+                    <View style={styles.footer}>
+                        <CText style={styles.date}>
+                            {formatDate(item.created_at)}
+                        </CText>
+
+                        {item.ConnectQR && item.ConnectQR !== "0" && item.ConnectQR !== 0 && item?.ConnectQR !== '' && (
+                            <View style={styles.badge}>
+                                <Icon name="link" size={12} color={theme.colors.light.primary} />
+                                <Text style={styles.badgeText}>Linked</Text>
+                            </View>
+                        )}
+                    </View>
+                </TouchableOpacity>
+            </>
         ),
         [navigation]
     );
@@ -413,14 +415,14 @@ const styles = StyleSheet.create({
     date: { fontSize: 11, color: "#999" },
     badge: {
         flexDirection: "row",
-        backgroundColor: theme.colors.light.primary,
-        borderRadius: 12,
+        backgroundColor: theme.colors.light.primary + '1A',
+        borderRadius: theme.radius.sm,
         paddingHorizontal: 8,
-        paddingVertical: 3,
+        paddingVertical: 5,
         alignItems: "center",
         gap: 4,
     },
-    badgeText: { color: "#fff", fontSize: 11 },
+    badgeText: { color: theme.colors.light.primary, fontSize: 11 },
     fab: {
         position: "absolute",
         right: 18,
