@@ -19,27 +19,27 @@ import React, {
 } from "react";
 import Icon from "react-native-vector-icons/Ionicons";
 
-import { globalStyles } from "../../theme/styles";
-import CustomHomeHeader from "../../components/layout/CustomHomeHeader";
+import { globalStyles } from "../../theme/styles.ts";
+import CustomHomeHeader from "../../components/layout/CustomHomeHeader.tsx";
 import { theme } from "../../theme";
-import { CText } from "../../components/common/CText";
+import { CText } from "../../components/common/CText.tsx";
 import { formatDate } from "../../utils/dateFormatter";
-import { useFiscalYear } from "../../context/FiscalYearContext";
-import UnauthorizedView from "../../components/UnauthorizedView";
-import { useAccess } from "../../hooks/useAccess";
-import { useAuth } from "../../context/AuthContext";
+import { useFiscalYear } from "../../context/FiscalYearContext.tsx";
+import UnauthorizedView from "../../components/UnauthorizedView.tsx";
+import { useAccess } from "../../hooks/useAccess.ts";
+import { useAuth } from "../../context/AuthContext.tsx";
 
 import {
     loadUsersFromCache,
     saveUsersToCache,
-} from "../../utils/cache/usersCache";
-import { handleApiError } from "../../utils/errorHandler";
+} from "../../utils/cache/usersCache.ts";
+import { handleApiError } from "../../utils/errorHandler.ts";
 import {getUsers} from "../../api/modules/userApi.ts";
 import {FILE_BASE_URL} from "../../../env.ts";
 
 const PAGE_SIZE = 50;
 
-export default function EmployeeScreen({ navigation }) {
+export default function UsersScreen({ navigation }) {
     const { fiscalYear } = useFiscalYear();
     const { user } = useAuth();
     const { hasRole } = useAccess();
@@ -77,9 +77,6 @@ export default function EmployeeScreen({ navigation }) {
                 const fresh = await getUsers();
                 const normalized = Array.isArray(fresh) ? fresh : [];
                 setUsers(normalized);
-
-
-                console.log(normalized)
 
                 const savedAt = await saveUsersToCache(
                     user.id,
@@ -142,6 +139,7 @@ export default function EmployeeScreen({ navigation }) {
                 onPress={() =>
                     navigation.navigate("UserDetails", {
                         userId: item.id,
+                        item
                     })
                 }
             >
@@ -241,13 +239,6 @@ export default function EmployeeScreen({ navigation }) {
                     />
                 )}
             </View>
-
-            <TouchableOpacity
-                style={styles.fab}
-                onPress={() => navigation.navigate("AddUser")}
-            >
-                <Icon name="person-add" size={24} color="#fff" />
-            </TouchableOpacity>
         </SafeAreaView>
     );
 }

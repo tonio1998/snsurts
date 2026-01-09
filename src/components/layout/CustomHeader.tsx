@@ -37,33 +37,10 @@ const generateCircles = (count = 4) => {
 const CustomHeader = ({ title = '', leftContent = null, rightContent = null }) => {
     const navigation = useNavigation();
     const { user } = useAuth();
-    const [acad, setAcad] = useState(null);
     const circles = useMemo(() => generateCircles(), []);
 
     const fadeAnim = useMemo(() => new Animated.Value(0), []);
     const scaleAnim = useMemo(() => new Animated.Value(0.8), []);
-
-    useFocusEffect(
-        useCallback(() => {
-            (async () => {
-                const acadInfo = await getAcademicInfo();
-                setAcad(acadInfo);
-            })();
-
-            Animated.parallel([
-                Animated.timing(fadeAnim, {
-                    toValue: 1,
-                    duration: 800,
-                    useNativeDriver: true,
-                }),
-                Animated.spring(scaleAnim, {
-                    toValue: 1,
-                    friction: 5,
-                    useNativeDriver: true,
-                }),
-            ]).start();
-        }, [fadeAnim, scaleAnim])
-    );
 
     const handleProfile = () => navigate('Profile');
     const handleAcad = () => navigation.navigate('AcademicYear');

@@ -38,6 +38,7 @@ import AcademicYearScreen from "./src/Shared/AcademicYearScreen.tsx";
 import {FiscalYearProvider} from "./src/context/FiscalYearContext.tsx";
 import {useAccess} from "./src/hooks/useAccess.ts";
 import AnauthorizedScreen from "./src/Shared/Anauthorized.tsx";
+import UsersDetails from "./src/screens/user/UsersDetails.tsx";
 const Stack = createNativeStackNavigator();
 LogBox.ignoreLogs(['Text strings must be rendered within a <Text> component']);
 
@@ -165,6 +166,7 @@ const AppNavigator = () => {
                                     name="AcademicYear"
                                     component={AcademicYearScreen}
                                 />
+                                <Stack.Screen name="UserDetails" component={UsersDetails} />
                                 {/*{hasRole('STUD') ? (*/}
                                 {/*    <Stack.Screen*/}
                                 {/*        name="Unauthorized"*/}

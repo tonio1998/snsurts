@@ -11,7 +11,7 @@ import HomeScreen from '../Shared/HomeScreen';
 import ScanScreen from '../screens/Scanner/ScanScreen';
 import RecordsScreen from '../screens/Records/RecordsScreen';
 import AddDocumentScreen from '../screens/Records/AddRecordScreen';
-import EmployeeScreen from "../screens/Employee/EmployeeScreen.tsx";
+import UsersScreen from "../screens/user/UsersScreen.tsx";
 import {useAccess} from "../hooks/useAccess.ts";
 
 const Tab = createBottomTabNavigator();
@@ -99,9 +99,9 @@ export default function BottomTabNav() {
 			<Tab.Screen name="Home" component={HomeScreen} />
 			<Tab.Screen name="Scan" component={ScanScreen} />
 			<Tab.Screen name="Record" component={RecordsScreen} />
-
-			{hasAnyRole(["FISEmployee", "ACAD"]) && (
-				<Tab.Screen name={'Employee'} component={EmployeeScreen} />
+			{/*hasAnyRole(["FISEmployee", "ACAD"]*/}
+			{hasAnyRole(["SA"]) && (
+				<Tab.Screen name={'Employee'} component={UsersScreen} />
 			)}
 			{/*<Tab.Screen name="Add" component={AddDocumentScreen} />*/}
 		</Tab.Navigator>
