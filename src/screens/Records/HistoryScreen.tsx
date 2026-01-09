@@ -33,7 +33,7 @@ import LeafletMap, { MapPoint } from '../../components/maps/LeafletMap';
 import {
     loadTrackingHistoryFromCache,
     saveTrackingHistoryToCache,
-} from '../../utils/cache/trackingHistoryCache';
+} from '../../services/cache/trackingHistoryCache';
 
 const MAP_MAX_HEIGHT = 300;
 const MAP_MIN_HEIGHT = 90;

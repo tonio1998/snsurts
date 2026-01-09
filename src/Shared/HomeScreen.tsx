@@ -30,7 +30,7 @@ import { handleApiError } from '../utils/errorHandler';
 import {
 	loadDashboardFromCache,
 	saveDashboardToCache,
-} from '../utils/cache/dashboardCache';
+} from '../services/cache/dashboardCache';
 import { LastUpdatedBadge } from '../components/common/LastUpdatedBadge';
 import { useAccess } from '../hooks/useAccess';
 import UnauthorizedView from '../components/UnauthorizedView';
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
 	},
 	heroValue: {
 		color: '#fff',
-		fontSize: 42,
+		fontSize: 35,
 		fontWeight: '700',
 		marginTop: 4,
 	},

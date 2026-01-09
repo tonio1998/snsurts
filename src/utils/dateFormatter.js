@@ -10,7 +10,7 @@ export const formatDate = (date, type = 'full') => {
   switch (type) {
     case 'relative':
       if(dayjs(date).fromNow() === 'a few seconds ago'){
-        return 'just now'
+        return 'Just now'
       }
       return dayjs(date).fromNow();
     case 'time':

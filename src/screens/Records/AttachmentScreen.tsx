@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState } from "react";
 import {
     SafeAreaView,
     FlatList,
@@ -12,30 +12,32 @@ import {
     ToastAndroid,
     Modal,
     Platform,
-} from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/Ionicons';
+} from "react-native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import Icon from "react-native-vector-icons/Ionicons";
 
-import { CText } from '../../components/common/CText';
-import BackHeader from '../../components/layout/BackHeader';
-import { globalStyles } from '../../theme/styles';
-import { theme } from '../../theme';
+import { CText } from "../../components/common/CText";
+import BackHeader from "../../components/layout/BackHeader";
+import { globalStyles } from "../../theme/styles";
+import { theme } from "../../theme";
 
-import { useTracking } from '../../context/TrackingContext';
-import { useAuth } from '../../context/AuthContext';
+import { useTracking } from "../../context/TrackingContext";
+import { useAuth } from "../../context/AuthContext";
 import {
     fetchRecordAttachments,
     uploadRecordAttachment,
-} from '../../api/modules/logsApi';
-import { handleApiError } from '../../utils/errorHandler';
-import { SubmissionModal } from '../../components/SubmissionModal';
-import { viewFile } from '../../utils/viewFile';
+} from "../../api/modules/logsApi";
+import { handleApiError } from "../../utils/errorHandler";
+import { SubmissionModal } from "../../components/SubmissionModal";
+import { viewFile } from "../../utils/viewFile";
 
 import {
     pick,
     isCancel,
     types,
-} from '@react-native-documents/picker';
+} from "@react-native-documents/picker";
+import {loadAttachmentsFromCache, saveAttachmentsToCache} from "../../services/cache/attachmentsCache.ts";
+
 
 export default function AttachmentScreen() {
     const navigation = useNavigation();
@@ -49,18 +51,28 @@ export default function AttachmentScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [link, setLink] = useState('');
+    const [link, setLink] = useState("");
 
     const [selectedFile, setSelectedFile] = useState<any>(null);
     const [downloadModal, setDownloadModal] = useState(false);
 
-    const loadAttachments = async (isRefresh = false) => {
+    const loadLocal = async () => {
+        const cached = await loadAttachmentsFromCache(RecordID);
+        if (cached.length) {
+            setSubmissions(cached);
+            setLoading(false);
+        }
+    };
+
+    const fetchFromServer = async (isRefresh = false) => {
         isRefresh ? setRefreshing(true) : setLoading(true);
         try {
             const res = await fetchRecordAttachments({ RecordID });
-            setSubmissions(res || []);
+            const list = res || [];
+            setSubmissions(list);
+            await saveAttachmentsToCache(RecordID, list);
         } catch (err) {
-            handleApiError(err, 'Fetch');
+            handleApiError(err, "Fetch");
         } finally {
             isRefresh ? setRefreshing(false) : setLoading(false);
         }
@@ -68,7 +80,8 @@ export default function AttachmentScreen() {
 
     useFocusEffect(
         useCallback(() => {
-            loadAttachments();
+            loadLocal();
+            fetchFromServer();
         }, [])
     );
 
@@ -82,34 +95,34 @@ export default function AttachmentScreen() {
             if (!file) return;
 
             if (file.size && file.size > 10 * 1024 * 1024) {
-                Alert.alert('File too large', 'Maximum file size is 10MB');
+                Alert.alert("File too large", "Maximum file size is 10MB");
                 return;
             }
 
             const formData = new FormData();
-            formData.append('file', {
+            formData.append("file", {
                 uri: file.uri,
                 name: file.name,
-                type: file.type || 'application/pdf',
+                type: file.type || "application/pdf",
             } as any);
 
-            formData.append('RecordID', RecordID);
+            formData.append("RecordID", RecordID);
 
             setUploading(true);
             const response = await uploadRecordAttachment(formData);
-            await loadAttachments();
+            await fetchFromServer(true);
 
-            if (Platform.OS === 'android') {
+            if (Platform.OS === "android") {
                 ToastAndroid.show(
                     response?.success
-                        ? 'File uploaded successfully.'
-                        : response?.message || 'Upload failed.',
+                        ? "File uploaded successfully."
+                        : response?.message || "Upload failed.",
                     ToastAndroid.SHORT
                 );
             }
         } catch (error) {
             if (!isCancel(error)) {
-                handleApiError(error, 'Upload');
+                handleApiError(error, "Upload");
             }
         } finally {
             setUploading(false);
@@ -122,16 +135,6 @@ export default function AttachmentScreen() {
         setDownloadModal(true);
     };
 
-    const handleDownload = (mode: 'auto' | 'template') => {
-        setDownloadModal(false);
-        viewFile(
-            selectedFile?.RecordID,
-            selectedFile?.id,
-            selectedFile?.filename,
-            mode
-        );
-    };
-
     const renderItem = ({ item }) => (
         <TouchableOpacity
             style={styles.submissionCard}
@@ -139,16 +142,13 @@ export default function AttachmentScreen() {
         >
             <Icon name="document-outline" size={22} color="#555" />
             <View style={{ marginLeft: 12, flex: 1 }}>
-                <CText
-                    fontSize={16}
-                    fontStyle="SB"
-                    numberOfLines={1}
-                    style={{ color: '#000' }}
-                >
+                <CText fontSize={16} fontStyle="SB" numberOfLines={1}>
                     {item.filename}
                 </CText>
                 {item.size && (
-                    <Text style={styles.subText}>Size: {item.size}</Text>
+                    <Text style={styles.subText}>
+                        Size: {item.size}
+                    </Text>
                 )}
             </View>
         </TouchableOpacity>
@@ -159,22 +159,31 @@ export default function AttachmentScreen() {
             <BackHeader title="Attachments" />
             <SafeAreaView style={globalStyles.safeArea}>
                 {loading ? (
-                    <ActivityIndicator size="large" color={theme.colors.light.primary} />
+                    <ActivityIndicator
+                        size="large"
+                        color={theme.colors.light.primary}
+                    />
                 ) : (
                     <FlatList
                         data={submissions}
-                        keyExtractor={(item, index) => `${item.id}-${index}`}
+                        keyExtractor={(item, index) =>
+                            `${item.id}-${index}`
+                        }
                         contentContainerStyle={{ padding: 12 }}
                         refreshControl={
                             <RefreshControl
                                 refreshing={refreshing}
-                                onRefresh={() => loadAttachments(true)}
+                                onRefresh={() =>
+                                    fetchFromServer(true)
+                                }
                             />
                         }
                         renderItem={renderItem}
                         ListEmptyComponent={
                             <View style={styles.emptyState}>
-                                <Text style={styles.emptyText}>No attachments uploaded.</Text>
+                                <Text style={styles.emptyText}>
+                                    No attachments uploaded.
+                                </Text>
                             </View>
                         }
                     />
@@ -184,7 +193,11 @@ export default function AttachmentScreen() {
                     style={styles.fab}
                     onPress={() => setModalVisible(true)}
                 >
-                    <Icon name="cloud-upload-outline" size={28} color="#fff" />
+                    <Icon
+                        name="cloud-upload-outline"
+                        size={28}
+                        color="#fff"
+                    />
                 </TouchableOpacity>
 
                 <SubmissionModal
@@ -200,49 +213,33 @@ export default function AttachmentScreen() {
                     visible={downloadModal}
                     transparent
                     animationType="fade"
-                    onRequestClose={() => setDownloadModal(false)}
+                    onRequestClose={() =>
+                        setDownloadModal(false)
+                    }
                 >
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalCard}>
-                            <CText fontSize={17} fontStyle="SB" style={styles.modalTitle}>
+                            <CText
+                                fontSize={17}
+                                fontStyle="SB"
+                                style={styles.modalTitle}
+                            >
                                 Download As
                             </CText>
 
-                            <CText>This feature is currently unavailable.</CText>
-
-                            {/*<TouchableOpacity*/}
-                            {/*    style={styles.optionBtn}*/}
-                            {/*    onPress={() => handleDownload('auto')}*/}
-                            {/*>*/}
-                            {/*    <Icon*/}
-                            {/*        name="flash-outline"*/}
-                            {/*        size={20}*/}
-                            {/*        color={theme.colors.light.primary}*/}
-                            {/*    />*/}
-                            {/*    <CText style={styles.optionText}>*/}
-                            {/*        Auto-Generated File*/}
-                            {/*    </CText>*/}
-                            {/*</TouchableOpacity>*/}
-
-                            {/*<TouchableOpacity*/}
-                            {/*    style={styles.optionBtn}*/}
-                            {/*    onPress={() => handleDownload('template')}*/}
-                            {/*>*/}
-                            {/*    <Icon*/}
-                            {/*        name="document-text-outline"*/}
-                            {/*        size={20}*/}
-                            {/*        color={theme.colors.light.primary}*/}
-                            {/*    />*/}
-                            {/*    <CText style={styles.optionText}>*/}
-                            {/*        Own-Template*/}
-                            {/*    </CText>*/}
-                            {/*</TouchableOpacity>*/}
+                            <CText>
+                                This feature is currently unavailable.
+                            </CText>
 
                             <TouchableOpacity
                                 style={styles.cancelBtn}
-                                onPress={() => setDownloadModal(false)}
+                                onPress={() =>
+                                    setDownloadModal(false)
+                                }
                             >
-                                <CText style={{ color: '#666' }}>Cancel</CText>
+                                <CText style={{ color: "#666" }}>
+                                    Cancel
+                                </CText>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -254,32 +251,32 @@ export default function AttachmentScreen() {
 
 const styles = StyleSheet.create({
     submissionCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: "row",
+        alignItems: "center",
         padding: 14,
         marginBottom: 10,
-        backgroundColor: '#fff',
+        backgroundColor: "#fff",
         borderRadius: 10,
         elevation: 1,
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOpacity: 0.05,
         shadowOffset: { width: 0, height: 1 },
     },
     subText: {
         fontSize: 12,
-        color: '#777',
+        color: "#777",
         marginTop: 2,
     },
     emptyState: {
-        alignItems: 'center',
+        alignItems: "center",
         marginTop: 160,
     },
     emptyText: {
-        color: '#999',
+        color: "#999",
         fontSize: 16,
     },
     fab: {
-        position: 'absolute',
+        position: "absolute",
         bottom: 30,
         right: 30,
         backgroundColor: theme.colors.light.primary,
@@ -289,37 +286,23 @@ const styles = StyleSheet.create({
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        justifyContent: 'center',
-        alignItems: 'center',
+        backgroundColor: "rgba(0,0,0,0.4)",
+        justifyContent: "center",
+        alignItems: "center",
     },
     modalCard: {
-        width: '85%',
-        backgroundColor: '#fff',
+        width: "85%",
+        backgroundColor: "#fff",
         borderRadius: 16,
         padding: 18,
     },
     modalTitle: {
-        textAlign: 'center',
+        textAlign: "center",
         marginBottom: 14,
-        color: '#000',
-    },
-    optionBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 14,
-        paddingHorizontal: 12,
-        borderRadius: 10,
-        backgroundColor: '#F5F5F5',
-        marginBottom: 10,
-    },
-    optionText: {
-        marginLeft: 10,
-        fontSize: 15,
-        color: '#000',
+        color: "#000",
     },
     cancelBtn: {
-        alignItems: 'center',
+        alignItems: "center",
         paddingVertical: 12,
     },
 });

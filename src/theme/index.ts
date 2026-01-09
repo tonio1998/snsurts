@@ -61,7 +61,7 @@ const colors = {
 
         // PURPLE
         // primary: '#7c40ff',
-        // primary_dark: '#773DFF',
+        // primary_dark: '#633CD0',
         // primary_light: '#9A70FF',
         // button: '#7800cf',
         // secondary: '#7209B7',
@@ -72,7 +72,7 @@ const colors = {
         // primary_light: '#F06292',  // Softer pink for highlights / backgrounds
         // button: '#D70F64',         // Strong CTA (same as primary, Foodpanda-style)
         // secondary: '#8E004D',      // Deep berry for contrast / secondary actions
-        //
+
 
         // TEAL GREEN
         // primary: '#0F766E',        // Teal Green – main brand / trust

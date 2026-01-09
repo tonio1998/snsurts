@@ -13,6 +13,7 @@ import RecordsScreen from '../screens/Records/RecordsScreen';
 import AddDocumentScreen from '../screens/Records/AddRecordScreen';
 import UsersScreen from "../screens/user/UsersScreen.tsx";
 import {useAccess} from "../hooks/useAccess.ts";
+import ChatScreen from "../screens/Chat/ChatScreen.tsx";
 
 const Tab = createBottomTabNavigator();
 const colors = theme.colors.light;
@@ -53,7 +54,8 @@ export default function BottomTabNav() {
 				return focused ? 'add-circle' : 'add-circle-outline';
 			case 'Employee':
 				return focused ? 'people' : 'people-outline';
-
+			case 'Chat':
+				return focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline';
 			default:
 				return 'ellipse-outline';
 		}
@@ -97,8 +99,9 @@ export default function BottomTabNav() {
 			})}
 		>
 			<Tab.Screen name="Home" component={HomeScreen} />
-			<Tab.Screen name="Scan" component={ScanScreen} />
 			<Tab.Screen name="Record" component={RecordsScreen} />
+			<Tab.Screen name="Scan" component={ScanScreen} />
+			<Tab.Screen name="Chat" component={ChatScreen} />
 			{/*hasAnyRole(["FISEmployee", "ACAD"]*/}
 			{hasAnyRole(["SA"]) && (
 				<Tab.Screen name={'Employee'} component={UsersScreen} />

@@ -82,6 +82,18 @@ export default function DetailsScreen() {
                         scrollEventThrottle={16}
                         showsVerticalScrollIndicator={false}
                     >
+                        <View style={styles.qrContainer}>
+                            <QRCodeScreen
+                                value={record?.QRCODE}
+                                size={160}
+                                color={theme.colors.light.text}
+                                backgroundColor="#FFFFFF"
+                                quietZone={10}
+                            />
+
+                            <Text style={styles.qrLabel}>QR Code</Text>
+                            <Text style={styles.qrValue}>{record?.QRCODE}</Text>
+                        </View>
                         <View style={globalStyles.card}>
                             <View style={styles.sectionRow}>
                                 <Text style={styles.section}>Document Information</Text>
@@ -161,19 +173,6 @@ export default function DetailsScreen() {
                             </View>
                         </View>
 
-                        <View style={styles.qrContainer}>
-                            <QRCodeScreen
-                                value={record?.QRCODE}
-                                size={200}
-                                color={theme.colors.light.text}
-                                backgroundColor="#FFFFFF"
-                                quietZone={10}
-                            />
-
-                            <Text style={styles.qrLabel}>QR Code</Text>
-                            <Text style={styles.qrValue}>{record?.QRCODE}</Text>
-                        </View>
-
                     </Animated.ScrollView>
                 </KeyboardAvoidingView>
             </SafeAreaView>
@@ -211,14 +210,14 @@ const styles = StyleSheet.create({
 
     qrContainer: {
         alignItems: 'center',
-        paddingVertical: 20,
-        marginBottom: 16,
+        // paddingVertical: 20,
+        // marginBottom: 16,
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
     },
 
     qrLabel: {
-        marginTop: 10,
+        marginTop: 5,
         fontSize: 12,
         color: '#888',
         textTransform: 'uppercase',
