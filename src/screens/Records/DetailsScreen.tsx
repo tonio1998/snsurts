@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import QRCode from 'react-native-qrcode-svg';
 
-import { globalStyles as gstyle } from '../../theme/styles';
+import {globalStyles, globalStyles as gstyle} from '../../theme/styles';
 import { theme } from '../../theme';
 
 import { useTracking } from '../../context/TrackingContext';
@@ -82,22 +82,7 @@ export default function DetailsScreen() {
                         scrollEventThrottle={16}
                         showsVerticalScrollIndicator={false}
                     >
-
-                        <View style={styles.card}>
-                            <View style={styles.qrContainer}>
-                                <QRCodeScreen
-                                    value={record?.QRCODE}
-                                    size={150}
-                                    color={theme.colors.light.text}
-                                    backgroundColor="#FFFFFF"
-                                    quietZone={10}
-                                />
-
-                                <Text style={styles.qrLabel}>QR Code</Text>
-                                <Text style={styles.qrValue}>{record?.QRCODE}</Text>
-                            </View>
-
-                            {/* DOCUMENT INFO */}
+                        <View style={globalStyles.card}>
                             <View style={styles.sectionRow}>
                                 <Text style={styles.section}>Document Information</Text>
 
@@ -130,7 +115,6 @@ export default function DetailsScreen() {
                                 )}
                             </View>
 
-                            {/* STATUS */}
                             <View style={styles.statusContainer}>
                                 <Info
                                     label="Trail Status"
@@ -140,9 +124,8 @@ export default function DetailsScreen() {
                             </View>
                         </View>
 
-                        {/* EXTERNAL DETAILS */}
                         {isExternal && (
-                            <View style={styles.card}>
+                            <View style={globalStyles.card}>
                                 <Text style={styles.section}>External Document Details</Text>
 
                                 <View style={styles.infoGroup}>
@@ -161,8 +144,7 @@ export default function DetailsScreen() {
                             </View>
                         )}
 
-                        {/* SYSTEM DATES */}
-                        <View style={styles.card}>
+                        <View style={globalStyles.card}>
                             <Text style={styles.section}>System Dates</Text>
 
                             <View style={styles.infoGroup}>
@@ -179,6 +161,19 @@ export default function DetailsScreen() {
                             </View>
                         </View>
 
+                        <View style={styles.qrContainer}>
+                            <QRCodeScreen
+                                value={record?.QRCODE}
+                                size={200}
+                                color={theme.colors.light.text}
+                                backgroundColor="#FFFFFF"
+                                quietZone={10}
+                            />
+
+                            <Text style={styles.qrLabel}>QR Code</Text>
+                            <Text style={styles.qrValue}>{record?.QRCODE}</Text>
+                        </View>
+
                     </Animated.ScrollView>
                 </KeyboardAvoidingView>
             </SafeAreaView>
@@ -186,7 +181,6 @@ export default function DetailsScreen() {
     );
 }
 
-/* INFO ROW */
 function Info({ label, value, color }: { label: string; value?: any; color?: string }) {
     return (
         <View style={styles.infoRow}>

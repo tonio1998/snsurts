@@ -13,6 +13,80 @@ export const globalStyles = StyleSheet.create({
         marginBottom: 10,
         backgroundColor: '#fff',
     },
+    bgCircleLarge: {
+        position: 'absolute',
+        width: 220,
+        height: 220,
+        borderRadius: 110,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        top: -80,
+        right: -60,
+    },
+    bgCircleSmall: {
+        position: 'absolute',
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        bottom: -40,
+        left: -30,
+    },
+    heroWrap: {
+        marginHorizontal: 16,
+        marginBottom: 16,
+    },
+    heroCard: {
+        borderRadius: 20,
+        padding: 20,
+    },
+    heroLabel: {
+        color: '#fff',
+        fontSize: 13,
+        opacity: 0.85,
+    },
+    heroTopRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 10,
+    },
+    heroTopItem: {
+        flex: 1,
+    },
+    heroValue: {
+        color: '#fff',
+        // fontSize: 42,
+        fontWeight: '700',
+        marginTop: 4,
+    },
+    heroSub: {
+        color: '#fff',
+        fontSize: 13,
+        opacity: 0.8,
+    },
+    heroDivider: {
+        height: 1,
+        backgroundColor: 'rgba(255,255,255,0.25)',
+        marginVertical: 14,
+    },
+    heroStatsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    heroStat: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    heroStatValue: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '700',
+    },
+    heroStatLabel: {
+        color: '#fff',
+        fontSize: 12,
+        opacity: 0.8,
+        marginTop: 2,
+    },
     picker: {
         height: 40,
         width: '100%',
@@ -97,15 +171,13 @@ export const globalStyles = StyleSheet.create({
     
     
     card: {
-        backgroundColor: theme.colors.light.card,
-        // padding: 16,
-        borderRadius: 8,
-        marginBottom: 10,
-        shadowColor: theme.colors.light.primary,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 1,
+        backgroundColor: '#fff',
+        borderRadius: 14,
+        padding: 16,
+        marginHorizontal: 12,
+        // marginBottom: 16,
+        // elevation: 1,
+        marginVertical: 12,
     },
     cardbody:{
         padding: 8,

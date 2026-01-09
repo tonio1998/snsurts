@@ -34,10 +34,12 @@ import {useFocusEffect, useTheme} from '@react-navigation/native';
 import ActivityIndicator2 from "../../components/loaders/ActivityIndicator2.tsx";
 import CButton from "../../components/buttons/CButton.tsx";
 import HeaderBackground from "../../components/halfBg.tsx";
+import {useFiscalYear} from "../../context/FiscalYearContext.tsx";
 
 export default function ProfileScreen({ navigation }) {
 	const { mode, toggleTheme, colors } = useTheme();
 	const network = useContext(NetworkContext);
+	const { fiscalYear } = useFiscalYear();
 	const { showAlert } = useAlert();
 	const { showLoading, hideLoading } = useLoading();
 	const [refreshing, setRefreshing] = useState(false);
@@ -237,7 +239,7 @@ export default function ProfileScreen({ navigation }) {
 								}} onPress={() => navigation.navigate('AcademicYear')}>
 									<Icon name="pencil" size={18} color={theme.colors.light.primary} />
 									<CText fontSize={15} fontStyle="SB" style={{ marginLeft: 6 }}>
-										{formatAcad(acad?.semester, acad?.from, acad?.to)}
+										FY {fiscalYear}
 									</CText>
 								</TouchableOpacity>
 							</View>

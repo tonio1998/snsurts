@@ -114,7 +114,7 @@ export default function RecordsScreen({ navigation }) {
         setVisibleCount(PAGE_SIZE);
 
         loadData();
-    }, [loadData]);
+    }, [loadData, user?.id]);
 
     const onRefresh = () => {
         if (loadingRef.current) return;

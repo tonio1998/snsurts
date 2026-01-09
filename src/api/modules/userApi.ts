@@ -1,7 +1,7 @@
 import api from "../api.ts";
 
 export const getUserDetails = async (id: number) => {
-    const response = await api.get(`/user/${id}`);
+    const response = await api.get(`/rts/user/${id}`);
     return response.data;
 };
 
