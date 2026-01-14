@@ -2,15 +2,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const USERS_CACHE_PREFIX = "users_cache";
 
-const getKey = (userId: number, fiscalYear: string | number) =>
-    `${USERS_CACHE_PREFIX}:${userId}:${fiscalYear}`;
+const getKey = (userId: number) =>
+    `${USERS_CACHE_PREFIX}:${userId}`;
 
 export const loadUsersFromCache = async (
     userId: number,
-    fiscalYear: string | number
 ): Promise<{ data: any[] | null; date: Date | null }> => {
     try {
-        const key = getKey(userId, fiscalYear);
+        const key = getKey(userId);
         const raw = await AsyncStorage.getItem(key);
 
         if (!raw) {
@@ -30,10 +29,9 @@ export const loadUsersFromCache = async (
 
 export const saveUsersToCache = async (
     userId: number,
-    fiscalYear: string | number,
     users: any[]
 ): Promise<Date> => {
-    const key = getKey(userId, fiscalYear);
+    const key = getKey(userId);
     const now = new Date();
 
     await AsyncStorage.setItem(
@@ -49,8 +47,7 @@ export const saveUsersToCache = async (
 
 export const clearUsersCache = async (
     userId: number,
-    fiscalYear: string | number
 ) => {
-    const key = getKey(userId, fiscalYear);
+    const key = getKey(userId);
     await AsyncStorage.removeItem(key);
 };

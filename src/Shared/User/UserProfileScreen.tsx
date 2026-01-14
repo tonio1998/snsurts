@@ -81,11 +81,10 @@ export default function ProfileScreen({ navigation }) {
 				return;
 			}
 
-			console.log("🔍 Fetching user data from API", user?.id);
-			const res = await getUserDetails(user?.id);
+			const res = await getUserDetails();
+			console.log('user data', res);
 			await AsyncStorage.setItem('user_data_' + user?.id, JSON.stringify(res));
 			setUserData(res);
-			console.log('[ONLINE] Data updated');
 		} catch (e) {
 			handleApiError(e, 'User Details');
 		}

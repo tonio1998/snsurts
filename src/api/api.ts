@@ -1,28 +1,19 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState, ToastAndroid } from 'react-native';
+import { AppState } from 'react-native';
 import { API_BASE_URL, APP_ID } from '../../env';
 import { handleApiError } from '../utils/errorHandler';
 
-type ApiCallLog = {
-	method?: string;
-	url?: string;
+type RateBucket = {
 	count: number;
-	timestamps: string[];
-	appStates: string[];
+	windowStart: number;
 };
 
-const REQUEST_WINDOW_MS = 1500;
+const rateLimiter: Record<string, RateBucket> = {};
+const inFlightRequests = new Set<string>();
 
-const apiCallRegistry: Record<string, ApiCallLog> = {};
-
-const requestLock: Record<
-	string,
-	{
-		lastTime: number;
-		inFlight: boolean;
-	}
-> = {};
+const MAX_REQUESTS = 60;
+const WINDOW_MS = 60 * 1000;
 
 const SESSION_ID = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
@@ -30,30 +21,9 @@ let currentAppState: string = AppState.currentState;
 
 AppState.addEventListener('change', state => {
 	currentAppState = state;
-	console.log('[APP STATE]', state, new Date().toISOString());
 });
 
 const getAppState = () => currentAppState;
-
-const persistApiLog = async (key: string, data: ApiCallLog) => {
-	try {
-		const existing = await AsyncStorage.getItem('API_DEBUG_LOGS');
-		const logs = existing ? JSON.parse(existing) : {};
-		logs[key] = data;
-		await AsyncStorage.setItem('API_DEBUG_LOGS', JSON.stringify(logs));
-	} catch (e) {
-		console.warn('[API LOG PERSIST ERROR]', e);
-	}
-};
-
-export const getAllApiCalls = async () => {
-	const logs = await AsyncStorage.getItem('API_DEBUG_LOGS');
-	return logs ? JSON.parse(logs) : {};
-};
-
-export const clearApiLogs = async () => {
-	await AsyncStorage.removeItem('API_DEBUG_LOGS');
-};
 
 const api = axios.create({
 	baseURL: API_BASE_URL,
@@ -82,7 +52,7 @@ api.interceptors.request.use(
 
 		const method = config.method?.toUpperCase();
 		const url = config.url;
-		const key = `${method} ${url}`;
+		const key = `${SESSION_ID}:${method} ${url}`;
 		const now = Date.now();
 		const appState = getAppState();
 
@@ -90,50 +60,35 @@ api.interceptors.request.use(
 		config.headers['X-Session-ID'] = SESSION_ID;
 		config.headers['X-App-State'] = appState;
 
-		if (!requestLock[key]) {
-			requestLock[key] = { lastTime: 0, inFlight: false };
-		}
-
-		const lock = requestLock[key];
-
-		if (lock.inFlight && now - lock.lastTime < REQUEST_WINDOW_MS) {
-			return Promise.reject({
-				isDuplicate: true,
-				message: 'Duplicate request blocked',
-				config,
-			});
-		}
-
-		lock.inFlight = true;
-		lock.lastTime = now;
-
-		if (!apiCallRegistry[key]) {
-			apiCallRegistry[key] = {
-				method,
-				url,
+		if (!rateLimiter[SESSION_ID]) {
+			rateLimiter[SESSION_ID] = {
 				count: 0,
-				timestamps: [],
-				appStates: [],
+				windowStart: now,
 			};
 		}
 
-		apiCallRegistry[key].count += 1;
-		apiCallRegistry[key].timestamps.push(new Date().toISOString());
-		apiCallRegistry[key].appStates.push(appState);
+		const bucket = rateLimiter[SESSION_ID];
 
-		console.log('[API CALL]', {
-			key,
-			count: apiCallRegistry[key].count,
-			appState,
-		});
-
-		console.trace(`[API TRACE] ${key}`);
-
-		if (appState !== 'active') {
-			console.warn('[BACKGROUND API CALL]', key);
+		if (now - bucket.windowStart >= WINDOW_MS) {
+			bucket.count = 0;
+			bucket.windowStart = now;
 		}
 
-		await persistApiLog(key, apiCallRegistry[key]);
+		if (bucket.count >= MAX_REQUESTS) {
+			return Promise.reject({
+				isRateLimited: true,
+				message: 'Rate limit exceeded (60 requests per minute)',
+			});
+		}
+
+		if (inFlightRequests.has(key)) {
+			return Promise.reject({
+				isDuplicate: true,
+			});
+		}
+
+		inFlightRequests.add(key);
+		bucket.count += 1;
 
 		return config;
 	},
@@ -142,17 +97,13 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
 	response => {
-		const key = `${response.config.method?.toUpperCase()} ${response.config.url}`;
-		if (requestLock[key]) {
-			requestLock[key].inFlight = false;
-		}
+		const key = `${SESSION_ID}:${response.config.method?.toUpperCase()} ${response.config.url}`;
+		inFlightRequests.delete(key);
 		return response;
 	},
 	async error => {
-		const key = `${error.config?.method?.toUpperCase()} ${error.config?.url}`;
-		if (requestLock[key]) {
-			requestLock[key].inFlight = false;
-		}
+		const key = `${SESSION_ID}:${error.config?.method?.toUpperCase()} ${error.config?.url}`;
+		inFlightRequests.delete(key);
 
 		try {
 			const userData = await AsyncStorage.getItem('user');

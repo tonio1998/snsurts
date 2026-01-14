@@ -30,7 +30,7 @@ export default function AddDocumentScreen({ route, navigation }) {
     const { showAlert } = useAlert();
 
     const [type, setType] = useState(info?.type?.toString() ?? "1");
-    const [connectQR, setConnectQR] = useState(info?.connectQR ?? "");
+    const [connectQR, setConnectQR] = useState(info?.ConnectQR ?? "");
     const [TransactBy, setTransactBy] = useState(info?.TransactBy?.toString() ?? "1");
     const [AssetUnitID, setAssetUnitID] = useState(info?.UnitID ?? "");
     const [Origin, setOrigin] = useState(info?.Origin ?? "");
@@ -97,7 +97,7 @@ export default function AddDocumentScreen({ route, navigation }) {
             TransactBy,
             AssetUnitID,
             Origin,
-            DateTimeReceived: DateTimeReceived?.toISOString(),
+            DateTimeReceived: DateTimeReceived?.toISOString() || null,
             TransactionType,
             Priority,
             Description,
@@ -112,6 +112,7 @@ export default function AddDocumentScreen({ route, navigation }) {
             if (info?.id) {
                 response = await updateRecord(info.id, formData);
             } else {
+                console.log("formData: ", formData)
                 response = await addRecord(formData);
             }
 

@@ -17,7 +17,6 @@ import DetailsScreen from "../screens/Records/DetailsScreen.tsx";
 const Tab = createBottomTabNavigator();
 const currentColors = theme.colors.light;
 
-/* -------------------- ORIENTATION HOOK -------------------- */
 function useOrientation() {
 	const [isLandscape, setIsLandscape] = useState(
 		Dimensions.get('window').width > Dimensions.get('window').height
@@ -33,9 +32,7 @@ function useOrientation() {
 	return isLandscape;
 }
 
-/* -------------------- WRAPPER -------------------- */
 export default function TrackingBottomTabNav({ route }) {
-	console.log('route', route.params.qr_code);
 	return (
 		<TrackingProvider qr_code={route.params.qr_code}>
 			<TrackingTabContent />
@@ -43,7 +40,6 @@ export default function TrackingBottomTabNav({ route }) {
 	);
 }
 
-/* -------------------- CONTENT -------------------- */
 function TrackingTabContent() {
 	const isLandscape = useOrientation();
 	const insets = useSafeAreaInsets();
