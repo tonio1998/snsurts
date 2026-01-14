@@ -1,8 +1,13 @@
 import api from "../api.ts";
 
-export const getUserDetails = async (id: number) => {
-    const response = await api.get(`/rts/user/${id}`);
+export const getUserDetails = async () => {
+    const response = await api.get(`/user/data`);
     return response.data;
+};
+
+export const getUserData = async (id: number) => {
+	const response = await api.get(`/rts/user/${id}`);
+	return response.data;
 };
 
 export const getUsers = async () => {
@@ -36,12 +41,6 @@ export const changePassword = async (id: number, data: any) => {
 	const response = await api.put(`/user/${id}/change-password`, data); // custom endpoint
 	return response.data;
 };
-
-export const updateUserRole = async (role: 'skilled_worker' | 'homeowner') => {
-	const response = await api.post('/user/role', { role });
-	return response.data;
-};
-
 
 export const userFavorites = async (id: number) => {
     const response = await api.get(`/user/${id}/favorites`);

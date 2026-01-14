@@ -77,6 +77,8 @@ export default function HistoryScreen() {
                 });
 
                 const data = res?.current ?? [];
+
+                console.log('data', data)
                 setHistory(data);
 
                 await saveTrackingHistoryToCache(

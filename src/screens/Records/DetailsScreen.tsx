@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import {
     SafeAreaView,
     View,
@@ -6,75 +6,73 @@ import {
     StyleSheet,
     Platform,
     KeyboardAvoidingView,
-    RefreshControl,
     StatusBar,
     Animated,
-    TouchableOpacity,
+    TouchableOpacity, ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import QRCode from 'react-native-qrcode-svg';
 
-import {globalStyles, globalStyles as gstyle} from '../../theme/styles';
+import { globalStyles as gstyle } from '../../theme/styles';
 import { theme } from '../../theme';
 
 import { useTracking } from '../../context/TrackingContext';
 import { useAuth } from '../../context/AuthContext';
-import { getTrackingHistory } from '../../api/modules/logsApi';
-import { handleApiError } from '../../utils/errorHandler';
 import { formatDate } from '../../utils/dateFormatter';
-import QRCodeScreen from "../../components/QRCodeScreen.tsx";
-
-const MAP_MAX_HEIGHT = 300;
-const MAP_MIN_HEIGHT = 100;
+import QRCodeScreen from '../../components/QRCodeScreen.tsx';
+import {CText} from "../../components/common/CText.tsx";
+import LoadingState from "../../components/LoadingState.tsx";
 
 export default function DetailsScreen() {
     const navigation = useNavigation();
-    const { record } = useTracking();
+    const { record, loading, initialized } = useTracking();
     const { user } = useAuth();
 
-    const TransactionID = record?.id;
     const scrollY = useRef(new Animated.Value(0)).current;
-
-    const [timeline, setTimeline] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
 
     const canEdit = record?.created_by === user?.id;
     const isExternal = record?.type === 0;
     const isUnit = record?.TransactBy === 1;
 
-    const mapHeight = scrollY.interpolate({
-        inputRange: [0, MAP_MAX_HEIGHT - MAP_MIN_HEIGHT],
-        outputRange: [MAP_MAX_HEIGHT, MAP_MIN_HEIGHT],
-        extrapolate: 'clamp',
-    });
+    console.log("record", record);
 
     const statusColor = (status?: string) => {
         switch (status) {
             case 'Incoming':
-                return '#198754';
+                return '#2f9e44';
             case 'Outgoing':
-                return '#0d6efd';
+                return '#1c7ed6';
             case 'Return':
-                return '#fd7e14';
+                return '#f08c00';
             case 'Done':
-                return '#6f42c1';
+                return '#5f3dc4';
             default:
-                return '#6c757d';
+                return '#868e96';
         }
     };
+
+    if (!initialized) {
+        return (
+            <LoadingState
+                backgroundColor={theme.colors.light.primary}
+                indicatorColor={theme.colors.light.primary}
+                message="Loading..."
+            />
+        );
+    }
+
 
     return (
         <>
             <StatusBar backgroundColor={theme.colors.light.primary} />
 
-            <SafeAreaView style={[gstyle.safeArea, { paddingTop: 0 }]}>
+            <SafeAreaView style={[gstyle.safeArea, { paddingTop: 30 }]}>
                 <KeyboardAvoidingView
                     style={{ flex: 1 }}
                     behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 >
                     <Animated.ScrollView
-                        contentContainerStyle={{ paddingTop: 50 }}
+                        contentContainerStyle={styles.container}
                         onScroll={Animated.event(
                             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
                             { useNativeDriver: false }
@@ -82,97 +80,101 @@ export default function DetailsScreen() {
                         scrollEventThrottle={16}
                         showsVerticalScrollIndicator={false}
                     >
-                        <View style={styles.qrContainer}>
+                        <View style={styles.hero}>
                             <QRCodeScreen
                                 value={record?.QRCODE}
-                                size={160}
-                                color={theme.colors.light.text}
-                                backgroundColor="#FFFFFF"
-                                quietZone={10}
+                                size={140}
+                                color="#111"
+                                backgroundColor="#fff"
                             />
+                            <Text style={styles.heroCode}>{record?.QRCODE}</Text>
 
-                            <Text style={styles.qrLabel}>QR Code</Text>
-                            <Text style={styles.qrValue}>{record?.QRCODE}</Text>
+                            <View
+                                style={[
+                                    styles.statusBadge,
+                                    { backgroundColor: `${statusColor(record?.TrailStatus)}22` },
+                                ]}
+                            >
+                                <Text
+                                    style={[
+                                        styles.statusText,
+                                        { color: statusColor(record?.TrailStatus) },
+                                    ]}
+                                >
+                                    {record?.TrailStatus ?? '—'}
+                                </Text>
+                            </View>
                         </View>
-                        <View style={globalStyles.card}>
-                            <View style={styles.sectionRow}>
-                                <Text style={styles.section}>Document Information</Text>
+
+                        <View style={styles.card}>
+                            <View style={styles.cardHeader}>
+                                <Text style={styles.cardTitle}>Document Information</Text>
 
                                 {canEdit && record?.tab === 'records' && (
                                     <TouchableOpacity
-                                        style={styles.editBtn}
                                         onPress={() =>
                                             navigation.navigate('AddRecord', { info: record })
                                         }
                                     >
-                                        <Icon name="create-outline" size={14} color="#fff" />
-                                        <Text style={styles.editText}>Edit</Text>
+                                        <Icon
+                                            name="create-outline"
+                                            size={18}
+                                            color={theme.colors.light.primary}
+                                        />
                                     </TouchableOpacity>
                                 )}
                             </View>
 
-                            <View style={styles.infoGroup}>
-                                <Info label="Document Type" value={record?.tab} />
-                                <Info label="Description" value={record?.Description} />
-                                <Info
-                                    label="Document Origin"
-                                    value={isExternal ? 'External' : 'Internal'}
-                                />
-                                <Info
-                                    label="Submitted As"
-                                    value={isUnit ? 'Unit' : 'Personal'}
-                                />
-                                {record?.QRCODE !== '' && (
-                                    <Info label="Connect QR" value={record?.ConnectQR} />
-                                )}
-                            </View>
-
-                            <View style={styles.statusContainer}>
-                                <Info
-                                    label="Trail Status"
-                                    value={record?.TrailStatus}
-                                    color={statusColor(record?.TrailStatus)}
-                                />
-                            </View>
+                            <Info label="Document Type" value={record?.tab} />
+                            <Info label="Description" value={record?.Description} />
+                            <Info
+                                label="Document Origin"
+                                value={isExternal ? 'External' : 'Internal'}
+                            />
+                            <Info
+                                label="Submitted As"
+                                value={isUnit ? 'Unit' : 'Personal'}
+                            />
+                            {record?.ConnectQR && (
+                                <Info label="Connected QR" value={record?.ConnectQR} />
+                            )}
                         </View>
 
                         {isExternal && (
-                            <View style={globalStyles.card}>
-                                <Text style={styles.section}>External Document Details</Text>
+                            <View style={styles.card}>
+                                <Text style={styles.cardTitle}>External Details</Text>
 
-                                <View style={styles.infoGroup}>
-                                    <Info label="Origin" value={record?.Origin} />
-                                    <Info
-                                        label="Date & Time Received"
-                                        value={
-                                            record?.DateTimeReceived
-                                                ? formatDate(record?.DateTimeReceived)
-                                                : '—'
-                                        }
-                                    />
-                                    <Info label="Transaction Type" value={record?.TransactionType} />
-                                    <Info label="Priority" value={record?.Priority} />
-                                </View>
-                            </View>
-                        )}
-
-                        <View style={globalStyles.card}>
-                            <Text style={styles.section}>System Dates</Text>
-
-                            <View style={styles.infoGroup}>
-                                <Info label="Created At" value={formatDate(record?.created_at)} />
-                                <Info label="Last Updated" value={formatDate(record?.updated_at)} />
+                                <Info label="Origin" value={record?.Origin} />
                                 <Info
-                                    label="Deadline"
+                                    label="Received"
                                     value={
-                                        record?.Deadline
-                                            ? formatDate(record?.Deadline)
+                                        record?.DateTimeReceived
+                                            ? formatDate(record?.DateTimeReceived)
                                             : '—'
                                     }
                                 />
+                                <Info
+                                    label="Transaction Type"
+                                    value={record?.TransactionType}
+                                />
+                                <Info label="Priority" value={record?.Priority} />
                             </View>
-                        </View>
+                        )}
 
+                        <View style={styles.card}>
+                            <Text style={styles.cardTitle}>System Dates</Text>
+
+                            <Info label="Created At" value={formatDate(record?.created_at)} />
+                            <Info label="Last Updated" value={formatDate(record?.updated_at)} />
+                            <Info
+                                label="Deadline"
+                                value={
+                                    record?.Deadline
+                                        ? formatDate(record?.Deadline)
+                                        : '—'
+                                }
+                            />
+                        </View>
                     </Animated.ScrollView>
                 </KeyboardAvoidingView>
             </SafeAreaView>
@@ -180,112 +182,85 @@ export default function DetailsScreen() {
     );
 }
 
-function Info({ label, value, color }: { label: string; value?: any; color?: string }) {
+function Info({ label, value }: { label: string; value?: any }) {
     return (
         <View style={styles.infoRow}>
-            <Text style={styles.label}>{label}</Text>
-            <Text
-                style={[
-                    styles.value,
-                    color ? { color, fontWeight: '700' } : null,
-                ]}
-                numberOfLines={2}
-            >
+            <Text style={styles.infoLabel}>{label}</Text>
+            <Text style={styles.infoValue} numberOfLines={2}>
                 {value ?? '—'}
             </Text>
         </View>
     );
 }
 
-/* STYLES */
 const styles = StyleSheet.create({
+    safe: {
+        backgroundColor: '#f5f6f8',
+    },
+
+    container: {
+        padding: 16,
+        paddingBottom: 32,
+    },
+
+    hero: {
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+
+    heroCode: {
+        marginTop: 10,
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#222',
+    },
+
+    statusBadge: {
+        marginTop: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+
+    statusText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+
     card: {
         backgroundColor: '#fff',
         borderRadius: 14,
         padding: 16,
-        marginHorizontal: 12,
         marginBottom: 16,
-        elevation: 2,
     },
 
-    qrContainer: {
-        alignItems: 'center',
-        // paddingVertical: 20,
-        // marginBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-
-    qrLabel: {
-        marginTop: 5,
-        fontSize: 12,
-        color: '#888',
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-
-    qrValue: {
-        marginTop: 4,
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#333',
-    },
-
-    sectionRow: {
+    cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
-    },
-
-    section: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#222',
         marginBottom: 8,
     },
 
-    editBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: theme.colors.light.primary,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-    },
-
-    editText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: '600',
-        marginLeft: 6,
-    },
-
-    infoGroup: {
-        marginTop: 8,
+    cardTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#111',
+        marginBottom: 8,
     },
 
     infoRow: {
-        marginBottom: 12,
+        marginBottom: 10,
     },
 
-    label: {
-        fontSize: 12,
+    infoLabel: {
+        fontSize: 11,
         color: '#777',
         marginBottom: 2,
     },
 
-    value: {
+    infoValue: {
         fontSize: 14,
         fontWeight: '500',
-        color: '#222',
-        lineHeight: 20,
-    },
-
-    statusContainer: {
-        marginTop: 16,
-        paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: '#eee',
+        color: '#111',
     },
 });

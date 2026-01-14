@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     SafeAreaView,
     View,
@@ -10,12 +10,11 @@ import {
     Alert,
     ActivityIndicator,
     KeyboardAvoidingView,
+    ScrollView,
     Vibration,
-    Animated,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
-import { CText } from '../../components/common/CText.tsx';
 import { globalStyles } from '../../theme/styles.ts';
 import SmartSelectPicker from '../../components/pickers/SmartSelectPicker.tsx';
 import api from '../../api/api.ts';
@@ -23,25 +22,16 @@ import { theme } from '../../theme';
 import { handleApiError } from '../../utils/errorHandler.ts';
 import { useTracking } from '../../context/TrackingContext.tsx';
 import { useDeviceLocation } from '../../hooks/useDeviceLocation.ts';
-import LeafletMap from '../../components/maps/LeafletMap.tsx';
-
-
-const MAP_MAX_HEIGHT = 260;
-const MAP_MIN_HEIGHT = 90;
+import {useSafeAreaInsets} from "react-native-safe-area-context";
 
 export default function ScanQRDetailsScreen() {
     const navigation = useNavigation();
     const { record, logs } = useTracking();
 
     const TransactionID = record?.id;
+    const insets = useSafeAreaInsets();
 
-    const {
-        location,
-        loading: locating,
-        granted: locationGranted,
-        error: locationError,
-        retry: retryLocation,
-    } = useDeviceLocation(true);
+    const { location } = useDeviceLocation(true);
 
     const [selected, setSelected] = useState<0 | 1 | 2 | 3>(1);
     const [courier, setCourier] = useState('');
@@ -53,7 +43,6 @@ export default function ScanQRDetailsScreen() {
     const [waited, setWaited] = useState(false);
     const [forQuery, setForQuery] = useState('appropriate action');
     const [showForSuggestions, setShowForSuggestions] = useState(false);
-    const [assignmentList, setAssignmentList] = useState([]);
 
     const forSuggestions = [
         'appropriate action',
@@ -76,11 +65,8 @@ export default function ScanQRDetailsScreen() {
         item.toLowerCase().includes(forQuery.toLowerCase())
     );
 
-
-    const scrollY = useRef(new Animated.Value(0)).current;
-
     useEffect(() => {
-        const t = setTimeout(() => setWaited(true), 1000);
+        const t = setTimeout(() => setWaited(true), 800);
         return () => clearTimeout(t);
     }, []);
 
@@ -88,48 +74,21 @@ export default function ScanQRDetailsScreen() {
         if (logs?.courier) setCourier(String(logs.courier));
     }, [logs]);
 
-
-    const mapHeight = scrollY.interpolate({
-        inputRange: [0, MAP_MAX_HEIGHT - MAP_MIN_HEIGHT],
-        outputRange: [MAP_MAX_HEIGHT, MAP_MIN_HEIGHT],
-        extrapolate: 'clamp',
-    });
-
-    const mapOpacity = scrollY.interpolate({
-        inputRange: [0, 140],
-        outputRange: [1, 0.85],
-        extrapolate: 'clamp',
-    });
-
-
     const handleSubmit = async () => {
         if (!TransactionID) {
             return Alert.alert('Error', 'Missing transaction reference.');
         }
 
-        // if (!locationGranted) {
-        //     return Alert.alert('Location Required', 'Please allow location permission.');
-        // }
-
-        // if (!location) {
-        //     return Alert.alert(
-        //         'Location Not Ready',
-        //         locationError || 'Waiting for GPS signal.',
-        //         [{ text: 'Retry', onPress: retryLocation }]
-        //     );
-        // }
-
         const isOutgoing = selected === 1;
         const isReturn = selected === 2;
 
-        if (!selectedAssignment)
+        if (!selectedAssignment) {
             return Alert.alert('Error', 'Assignment is required.');
+        }
 
-        if (isOutgoing && (!courier || !destination))
-            return Alert.alert('Error', 'Please complete all Outgoing fields.');
-
-        if (isReturn && (!courier || !destination))
+        if ((isOutgoing || isReturn) && (!courier || !destination)) {
             return Alert.alert('Error', 'Courier and Destination are required.');
+        }
 
         setLoading(true);
 
@@ -139,17 +98,16 @@ export default function ScanQRDetailsScreen() {
                 action_type: ['Incoming', 'Outgoing', 'Return', 'Done'][selected],
                 courier_id: courier || null,
                 destination_unit_id: destination || null,
-                for_action: forField || "appropriate action",
+                for_action: forField || 'appropriate action',
                 remarks: remarks || null,
                 assignment_id: selectedAssignment,
-                coordinates_lat: location?.latitude || 0,
-                coordinates_lng: location?.longitude || 0,
+                coordinates_lat: location?.latitude ?? 0,
+                coordinates_lng: location?.longitude ?? 0,
             };
 
             await api.post('/rts/log/add', payload);
 
-            Vibration.vibrate(600);
-            // Alert.alert('Success', 'Document logged successfully.');
+            Vibration.vibrate(500);
             navigation.navigate('History' as never);
         } catch (error) {
             handleApiError(error, 'log submission');
@@ -158,7 +116,6 @@ export default function ScanQRDetailsScreen() {
             setLoading(false);
         }
     };
-
 
     if (!TransactionID && waited) {
         return (
@@ -172,55 +129,18 @@ export default function ScanQRDetailsScreen() {
         );
     }
 
-    if (!waited) {
-        return (
-            <View style={styles.centered}>
-                <ActivityIndicator size="large" color={theme.colors.light.primary} />
-                <Text>Loading…</Text>
-            </View>
-        );
-    }
-
-
     return (
-        <SafeAreaView style={globalStyles.safeArea}>
-            <Animated.View
-                style={[
-                    styles.mapContainer,
-                    { height: mapHeight, opacity: mapOpacity },
-                ]}
-            >
-                <LeafletMap
-                    latitude={location?.latitude}
-                    longitude={location?.longitude}
-                    loading={locating}
-                    error={locationError}
-                    height="100%"
-                />
-            </Animated.View>
-
+        <SafeAreaView style={[globalStyles.safeArea, {paddingTop: insets.top}]}>
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-                <Animated.ScrollView
+                <ScrollView
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
-                    contentContainerStyle={{ paddingTop: MAP_MAX_HEIGHT - 150 }}
-                    onScroll={Animated.event(
-                        [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-                        { useNativeDriver: false }
-                    )}
-                    scrollEventThrottle={16}
+                    contentContainerStyle={{ paddingBottom: 160 }}
                 >
                     <View style={styles.card}>
-                        <TouchableOpacity
-                            onPress={retryLocation}
-                            style={styles.refreshLocation}
-                        >
-                            <Text style={styles.refreshText}>Refresh location</Text>
-                        </TouchableOpacity>
-
                         <Text style={styles.sectionTitle}>Action Type</Text>
 
                         <View style={styles.segment}>
@@ -256,10 +176,6 @@ export default function ScanQRDetailsScreen() {
                             labelKey="unit.UnitName"
                             valueKey="unit.UnitID"
                             placeholder="Select Assignment"
-                            onLoad={(data) => {
-                                setAssignmentList(data);
-                                if (!selectedAssignment && data.length > 0) setSelectedAssignment(String(data[0].unit.UnitID));
-                            }}
                         />
 
                         {(selected === 1 || selected === 2) && (
@@ -303,25 +219,27 @@ export default function ScanQRDetailsScreen() {
                                         onFocus={() => setShowForSuggestions(true)}
                                     />
 
-                                    {showForSuggestions && filteredForSuggestions.length > 0 && (
-                                        <View style={styles.suggestionBox}>
-                                            {filteredForSuggestions.map((item) => (
-                                                <TouchableOpacity
-                                                    key={item}
-                                                    style={styles.suggestionItem}
-                                                    onPress={() => {
-                                                        setForQuery(item);
-                                                        setForField(item);
-                                                        setShowForSuggestions(false);
-                                                    }}
-                                                >
-                                                    <Text style={styles.suggestionText}>{item}</Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </View>
-                                    )}
+                                    {showForSuggestions &&
+                                        filteredForSuggestions.length > 0 && (
+                                            <View style={styles.suggestionBox}>
+                                                {filteredForSuggestions.map(item => (
+                                                    <TouchableOpacity
+                                                        key={item}
+                                                        style={styles.suggestionItem}
+                                                        onPress={() => {
+                                                            setForQuery(item);
+                                                            setForField(item);
+                                                            setShowForSuggestions(false);
+                                                        }}
+                                                    >
+                                                        <Text style={styles.suggestionText}>
+                                                            {item}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </View>
+                                        )}
                                 </View>
-
                             </>
                         )}
 
@@ -333,16 +251,13 @@ export default function ScanQRDetailsScreen() {
                             onChangeText={setRemarks}
                         />
                     </View>
-                </Animated.ScrollView>
+                </ScrollView>
             </KeyboardAvoidingView>
 
             <TouchableOpacity
-                style={[
-                    styles.submitBtn,
-                    // (loading || !location) && { backgroundColor: '#999' },
-                ]}
-                // disabled={loading || !location}
+                style={styles.submitBtn}
                 onPress={handleSubmit}
+                disabled={loading}
             >
                 {loading ? (
                     <ActivityIndicator color="#fff" />
@@ -357,6 +272,70 @@ export default function ScanQRDetailsScreen() {
 /* ---------------- STYLES ---------------- */
 
 const styles = StyleSheet.create({
+    centered: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+
+    card: {
+        backgroundColor: '#fff',
+        borderRadius: 24,
+        padding: 18,
+        marginTop: 12,
+        // elevation: 4,
+    },
+
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        marginBottom: 12,
+    },
+
+    segment: {
+        flexDirection: 'row',
+        backgroundColor: '#f3f6f4',
+        borderRadius: 14,
+        padding: 6,
+        marginBottom: 18,
+    },
+
+    segmentItem: {
+        flex: 1,
+        paddingVertical: 10,
+        borderRadius: 12,
+        alignItems: 'center',
+        margin: 2,
+    },
+
+    segmentActive: {
+        backgroundColor: theme.colors.light.primary,
+    },
+
+    segmentText: {
+        fontWeight: '600',
+        color: '#666',
+    },
+
+    segmentTextActive: {
+        color: '#fff',
+    },
+
+    label: {
+        marginTop: 14,
+        marginBottom: 6,
+        fontWeight: '600',
+    },
+
+    input: {
+        borderWidth: 1,
+        borderColor: '#e1e1e1',
+        borderRadius: 14,
+        padding: 14,
+        backgroundColor: '#fff',
+        fontSize: 15,
+    },
+
     suggestionBox: {
         position: 'absolute',
         top: 56,
@@ -383,96 +362,13 @@ const styles = StyleSheet.create({
         color: '#333',
     },
 
-    centered: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-
-    mapContainer: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 0,
-    },
-
-    card: {
-        backgroundColor: '#fff',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        padding: 16,
-        paddingBottom: 150,
-        elevation: 8,
-    },
-
-    refreshLocation: {
-        alignSelf: 'flex-end',
-        marginBottom: 10,
-    },
-
-    refreshText: {
-        color: theme.colors.light.primary,
-        fontWeight: '600',
-    },
-
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        marginBottom: 12,
-    },
-
-    segment: {
-        flexDirection: 'row',
-        backgroundColor: theme.colors.light.primary + '10',
-        // elevation: 6,
-        borderRadius: theme.radius.md,
-        padding: 4,
-        marginBottom: 16,
-    },
-
-    segmentItem: {
-        flex: 1,
-        paddingVertical: 10,
-        borderRadius: theme.radius.md,
-        alignItems: 'center',
-        margin: 3
-    },
-
-    segmentActive: {
-        backgroundColor: theme.colors.light.primary,
-    },
-
-    segmentText: {
-        fontWeight: '600',
-        color: '#666',
-    },
-
-    segmentTextActive: {
-        color: '#fff',
-    },
-
-    label: {
-        marginTop: 14,
-        marginBottom: 6,
-        fontWeight: '600',
-    },
-
-    input: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 12,
-        padding: 14,
-        backgroundColor: '#fafafa',
-    },
-
     submitBtn: {
         position: 'absolute',
         bottom: 20,
         left: 16,
         right: 16,
         paddingVertical: 16,
-        borderRadius: 14,
+        borderRadius: 16,
         backgroundColor: theme.colors.light.primary,
         alignItems: 'center',
         elevation: 6,

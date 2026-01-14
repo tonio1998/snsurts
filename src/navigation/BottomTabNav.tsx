@@ -101,7 +101,7 @@ export default function BottomTabNav() {
 			<Tab.Screen name="Home" component={HomeScreen} />
 			<Tab.Screen name="Record" component={RecordsScreen} />
 			<Tab.Screen name="Scan" component={ScanScreen} />
-			<Tab.Screen name="Chat" component={ChatScreen} />
+			{/*<Tab.Screen name="Chat" component={ChatScreen} />*/}
 			{/*hasAnyRole(["FISEmployee", "ACAD"]*/}
 			{hasAnyRole(["SA"]) && (
 				<Tab.Screen name={'Employee'} component={UsersScreen} />

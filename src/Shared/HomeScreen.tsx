@@ -81,6 +81,8 @@ const HomeScreen = ({ navigation }) => {
 			}
 
 			const fresh = await getDashData({ fiscalYear });
+
+			console.log('fresh', fresh);
 			setDashboardData(fresh);
 
 			const savedAt = await saveDashboardToCache(
@@ -102,7 +104,7 @@ const HomeScreen = ({ navigation }) => {
 
 	useEffect(() => {
 		loadDashboard();
-	}, [fiscalYear]);
+	}, []);
 
 	const onRefresh = () => {
 		setRefreshing(true);
@@ -150,7 +152,7 @@ const HomeScreen = ({ navigation }) => {
 						/>
 
 						<View style={styles.searchBox}>
-							<Icon name="search-outline" size={18} color="#999" />
+							<Icon name="search-outline" size={18} color="#999" style={{marginRight: 8, marginLeft: 8}} />
 
 							<TextInput
 								placeholder="Search records, QR code, sender…"
@@ -441,9 +443,9 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		backgroundColor: '#fff',
-		borderRadius: 16,
+		borderRadius: theme.radius.md,
 		paddingHorizontal: 14,
-		paddingVertical: 12,
+		paddingVertical: 5,
 		marginTop: 14,
 		elevation: 3,
 	},

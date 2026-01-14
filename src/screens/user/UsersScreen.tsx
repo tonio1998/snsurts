@@ -64,8 +64,7 @@ export default function UsersScreen({ navigation }) {
             try {
                 if (!force) {
                     const { data, date } = await loadUsersFromCache(
-                        user.id,
-                        fiscalYear
+                        user.id
                     );
                     if (Array.isArray(data)) {
                         setUsers(data);
@@ -78,9 +77,10 @@ export default function UsersScreen({ navigation }) {
                 const normalized = Array.isArray(fresh) ? fresh : [];
                 setUsers(normalized);
 
+                console.log('normalized', normalized)
+
                 const savedAt = await saveUsersToCache(
-                    user.id,
-                    fiscalYear,
+                    user?.id,
                     normalized
                 );
                 setLastUpdated(savedAt);
@@ -212,7 +212,7 @@ export default function UsersScreen({ navigation }) {
                 ) : (
                     <FlatList
                         data={visibleUsers}
-                        keyExtractor={item => String(item.id)}
+                        keyExtractor={item => String(item.email)}
                         renderItem={renderItem}
                         refreshControl={
                             <RefreshControl

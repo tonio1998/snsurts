@@ -51,7 +51,7 @@ export default function ChatScreen({ navigation }) {
             const response = await getChat();
             const list = Array.isArray(response) ? response : [];
             setChats(list);
-            console.log(list);
+            console.log('list', list);
             await saveChatListToCache(user.id, list);
             setLoading(false);
         } catch (e) {

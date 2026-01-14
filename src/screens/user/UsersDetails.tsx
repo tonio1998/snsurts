@@ -4,7 +4,7 @@ import {
     View,
     Image,
     ScrollView,
-    RefreshControl,
+    RefreshControl, ActivityIndicator,
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import LinearGradient from "react-native-linear-gradient";
@@ -19,14 +19,16 @@ import { useAccess } from "../../hooks/useAccess";
 import { useAuth } from "../../context/AuthContext";
 import { useFiscalYear } from "../../context/FiscalYearContext";
 
-import { getUserDetails } from "../../api/modules/userApi";
+import {getUserData, getUserDetails} from "../../api/modules/userApi";
 import { handleApiError } from "../../utils/errorHandler";
 import { formatNumber } from "../../utils/format";
 
 import { FILE_BASE_URL } from "../../../env";
 import {loadUserFromCache, saveUserToCache} from "../../services/cache/userCache.ts";
+import CButton from "../../components/buttons/CButton.tsx";
+import {AsyncValue} from "../../components/AsyncValue.tsx";
 
-export default function UsersDetails({ route }) {
+export default function UsersDetails({ route, navigation }) {
     const { user } = useAuth();
     const { hasRole } = useAccess();
     const { fiscalYear } = useFiscalYear();
@@ -45,7 +47,8 @@ export default function UsersDetails({ route }) {
                 }
             }
 
-            const fresh = await getUserDetails(id);
+            const fresh = await getUserData(id);
+            console.log(fresh);
             setUserData(fresh);
             await saveUserToCache(id, fresh);
         } catch (e) {
@@ -119,7 +122,22 @@ export default function UsersDetails({ route }) {
                     <CText style={styles.profileEmail}>
                         {userDetails.email}
                     </CText>
+
+                    {/*<View style={globalStyles.mt_3}>*/}
+                    {/*    <CButton*/}
+                    {/*        type="secondary"*/}
+                    {/*        icon="chatbubble-ellipses"*/}
+                    {/*        title="Chat"*/}
+                    {/*        onPress={() =>*/}
+                    {/*            navigation.navigate("ChatRoom", {*/}
+                    {/*                id: userDetails.id,*/}
+                    {/*                item: userDetails,*/}
+                    {/*            })*/}
+                    {/*        }*/}
+                    {/*    />*/}
+                    {/*</View>*/}
                 </View>
+
 
                 <LinearGradient
                     colors={[
@@ -133,42 +151,37 @@ export default function UsersDetails({ route }) {
 
                     <View style={globalStyles.cardRow}>
                         <CText style={globalStyles.heroLabel}>Overview</CText>
+
                         <View style={globalStyles.cardRow}>
                             <CText style={globalStyles.heroLabel}>
                                 Avg TAT (hrs)
                             </CText>
-                            <CText
-                                fontSize={20}
-                                fontStyle={"SB"}
-                                style={{ color: "#fff" }}
-                            >
-                                {userData?.avgTatHours || 0}
-                            </CText>
+
+                            <AsyncValue
+                                value={userData?.avgTatHours}
+                                textStyle={{ color: '#fff', fontSize: 20, marginLeft: 10 }}
+                            />
                         </View>
                     </View>
 
                     <View style={globalStyles.heroTopRow}>
                         <View style={globalStyles.heroTopItem}>
-                            <CText
-                                style={globalStyles.heroValue}
-                                fontSize={30}
-                            >
-                                {formatNumber(userData?.totalLogs || 0)}
-                            </CText>
+                            <AsyncValue
+                                value={userData?.totalLogs}
+                                formatter={formatNumber}
+                                textStyle={{ color: '#fff', fontSize: 20, marginLeft: 10, fontWeight: 'bold' }}
+                            />
                             <CText style={globalStyles.heroSub}>
                                 Total Logs
                             </CText>
                         </View>
 
                         <View style={globalStyles.heroTopItem}>
-                            <CText
-                                style={globalStyles.heroValue}
-                                fontSize={30}
-                            >
-                                {formatNumber(
-                                    userData?.stats?.totalCount || 0
-                                )}
-                            </CText>
+                            <AsyncValue
+                                value={userData?.stats?.totalCount}
+                                formatter={formatNumber}
+                                textStyle={{ color: '#fff', fontSize: 20, marginLeft: 10, fontWeight: 'bold' }}
+                            />
                             <CText style={globalStyles.heroSub}>
                                 Total Documents
                             </CText>
@@ -179,15 +192,17 @@ export default function UsersDetails({ route }) {
 
                     <View style={globalStyles.heroStatsRow}>
                         {[
-                            { label: "Incoming", value: userData?.stats?.Incoming },
-                            { label: "Completed", value: userData?.stats?.Done },
-                            { label: "Outgoing", value: userData?.stats?.Outgoing },
-                            { label: "Overdue", value: userData?.stats?.Overdue },
+                            { label: 'Incoming', value: userData?.stats?.Incoming || 0 },
+                            { label: 'Completed', value: userData?.stats?.Done  || 0},
+                            { label: 'Outgoing', value: userData?.stats?.Outgoing  || 0},
+                            { label: 'Overdue', value: userData?.stats?.Overdue   || 0},
                         ].map((item, idx) => (
                             <View key={idx} style={globalStyles.heroStat}>
-                                <CText style={globalStyles.heroStatValue}>
-                                    {formatNumber(item.value || 0)}
-                                </CText>
+                                <AsyncValue
+                                    value={item.value}
+                                    formatter={formatNumber}
+                                    textStyle={globalStyles.heroStatValue}
+                                />
                                 <CText style={globalStyles.heroStatLabel}>
                                     {item.label}
                                 </CText>
@@ -195,6 +210,8 @@ export default function UsersDetails({ route }) {
                         ))}
                     </View>
                 </LinearGradient>
+
+
 
                 <View style={[globalStyles.card, { marginHorizontal: 0 }]}>
                     <CText style={styles.section} fontStyle={"SB"}>

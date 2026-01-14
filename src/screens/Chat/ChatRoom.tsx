@@ -98,6 +98,8 @@ export default function ChatRoom({ route }) {
                 message,
             });
 
+            console.log('response', response)
+
             const saved: ChatMessage = response.data;
             const updated = [
                 ...messages.filter(m => m.id !== temp.id),

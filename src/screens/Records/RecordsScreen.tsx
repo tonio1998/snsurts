@@ -6,7 +6,6 @@ import {
     View,
     Text,
     FlatList,
-    RefreshControl,
     Platform,
     ActivityIndicator,
 } from "react-native";
@@ -47,7 +46,7 @@ export default function RecordsScreen({ navigation }) {
     const [records, setRecords] = useState<any[]>([]);
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
     const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
+    const [syncing, setSyncing] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
     const [search, setSearch] = useState("");
@@ -58,70 +57,71 @@ export default function RecordsScreen({ navigation }) {
     const [dateType, setDateType] = useState<"from" | "to" | null>(null);
 
     const loadingRef = useRef(false);
-    const hasLoadedRef = useRef(false);
 
-    const loadData = useCallback(
-        async (force = false) => {
-            if (!user?.id) return;
-            if (loadingRef.current) return;
+    const loadFromCache = useCallback(async () => {
+        if (!user?.id || !fiscalYear) return;
 
-            loadingRef.current = true;
-            setLoading(true);
+        console.log("preparing to load records from cache");
+        setLoading(true);
 
-            try {
-                if (!force) {
-                    const { data, date } = await loadRecordsFromCache(
-                        user.id,
-                        fiscalYear
-                    );
-                    if (Array.isArray(data)) {
-                        setRecords(data);
-                        setLastUpdated(date);
-                        return;
-                    }
-                }
+        try {
+            const { data, date } = await loadRecordsFromCache(
+                user.id,
+                fiscalYear
+            );
 
-                const fresh = await getRecords({ fiscalYear });
-                const normalized = Array.isArray(fresh) ? fresh : [];
-
-                setRecords(normalized);
-
-                const savedAt = await saveRecordsToCache(
-                    user.id,
-                    fiscalYear,
-                    normalized
-                );
-                setLastUpdated(savedAt);
-            } catch (err) {
-                handleApiError(err);
-            } finally {
-                loadingRef.current = false;
-                setLoading(false);
-                setRefreshing(false);
+            if (Array.isArray(data)) {
+                setRecords(data);
+                setLastUpdated(date);
+            } else {
+                setRecords([]);
+                setLastUpdated(null);
             }
-        },
-        [user?.id, fiscalYear]
-    );
+        } catch (err) {
+            handleApiError(err);
+        } finally {
+            loadingRef.current = false;
+            setLoading(false);
+        }
+    }, [user?.id, fiscalYear]);
+
+    const syncFromServer = useCallback(async () => {
+        if (!user?.id || !fiscalYear) return;
+        if (loadingRef.current) return;
+
+        loadingRef.current = true;
+        setSyncing(true);
+
+        try {
+            const fresh = await getRecords({ fiscalYear });
+            const normalized = Array.isArray(fresh) ? fresh : [];
+
+            setRecords(normalized);
+            console.log("syncFromServer" , normalized);
+
+            const savedAt = await saveRecordsToCache(
+                user.id,
+                fiscalYear,
+                normalized
+            );
+            setLastUpdated(savedAt);
+        } catch (err) {
+            handleApiError(err);
+        } finally {
+            loadingRef.current = false;
+            setSyncing(false);
+        }
+    }, [user?.id, fiscalYear]);
 
     useEffect(() => {
-        if (hasLoadedRef.current) return;
-        hasLoadedRef.current = true;
-
         setSearch("");
         setLinkedFilter(null);
         setFromDate(null);
         setToDate(null);
         setVisibleCount(PAGE_SIZE);
 
-        loadData();
-    }, [loadData, user?.id]);
-
-    const onRefresh = () => {
-        if (loadingRef.current) return;
-        setRefreshing(true);
-        setVisibleCount(PAGE_SIZE);
-        loadData(true);
-    };
+        loadFromCache();
+    }, [fiscalYear]);
 
     const filteredRecords = useMemo(() => {
         let list = Array.isArray(records) ? [...records] : [];
@@ -165,7 +165,6 @@ export default function RecordsScreen({ navigation }) {
     );
 
     const loadMore = () => {
-        if (loadingRef.current) return;
         if (visibleCount < filteredRecords.length) {
             setVisibleCount(v => v + PAGE_SIZE);
         }
@@ -173,37 +172,48 @@ export default function RecordsScreen({ navigation }) {
 
     const renderItem = useCallback(
         ({ item }) => (
-            <>
-                <TouchableOpacity
-                    activeOpacity={0.9}
-                    style={styles.card}
-                    onPress={() =>
-                        item?.QRCODE &&
-                        navigation.navigate("ScanQRDetails", {
-                            qr_code: item.QRCODE,
-                        })
-                    }
-                >
-                    <CText fontStyle="SB" style={styles.title}>
-                        {item.Description}
+            <TouchableOpacity
+                activeOpacity={0.9}
+                style={styles.card}
+                onPress={() =>
+                    item?.QRCODE &&
+                    navigation.navigate("ScanQRDetails", {
+                        qr_code: item.QRCODE,
+                    })
+                }
+            >
+                <CText fontStyle="SB" style={styles.title}>
+                    {item.Description}
+                </CText>
+
+                <CText style={styles.qr}>{item.QRCODE}</CText>
+                {item?.location?.UnitName &&
+                    <CText style={styles.qr}>Location: {item?.location?.UnitName}</CText>
+                }
+                {item?.last_action?.name &&
+                    <CText style={styles.qr}>Last Action: {item?.last_action?.name}</CText>
+                }
+
+                <View style={styles.footer}>
+                    <CText style={styles.date}>
+                        {formatDate(item.created_at)}
                     </CText>
 
-                    <CText style={styles.qr}>QR: {item.QRCODE}</CText>
-
-                    <View style={styles.footer}>
-                        <CText style={styles.date}>
-                            {formatDate(item.created_at)}
-                        </CText>
-
-                        {item.ConnectQR && item.ConnectQR !== "0" && item.ConnectQR !== 0 && item?.ConnectQR !== '' && (
+                    {item.ConnectQR &&
+                        item.ConnectQR !== "0" &&
+                        item.ConnectQR !== 0 &&
+                        item.ConnectQR !== "" && (
                             <View style={styles.badge}>
-                                <Icon name="link" size={12} color={theme.colors.light.primary} />
+                                <Icon
+                                    name="link"
+                                    size={12}
+                                    color={theme.colors.light.primary}
+                                />
                                 <Text style={styles.badgeText}>Linked</Text>
                             </View>
                         )}
-                    </View>
-                </TouchableOpacity>
-            </>
+                </View>
+            </TouchableOpacity>
         ),
         [navigation]
     );
@@ -227,19 +237,30 @@ export default function RecordsScreen({ navigation }) {
                         placeholderTextColor="#8E8E93"
                     />
                     <TouchableOpacity onPress={() => setShowAdvanced(true)}>
-                        <Icon
-                            name="options-outline"
-                            size={20}
-                            color="#8E8E93"
-                        />
+                        <Icon name="options-outline" size={20} color="#8E8E93" />
                     </TouchableOpacity>
                 </View>
 
-                {lastUpdated && (
-                    <CText style={styles.lastUpdated}>
-                        Last updated: {formatDate(lastUpdated)}
-                    </CText>
-                )}
+                <View style={styles.syncRow}>
+                    {lastUpdated && (
+                        <CText style={styles.lastUpdated}>
+                            Last updated: {formatDate(lastUpdated)}
+                        </CText>
+                    )}
+
+                    <TouchableOpacity
+                        style={styles.syncBtn}
+                        onPress={syncFromServer}
+                        disabled={syncing}
+                    >
+                        {syncing ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <Icon name="sync" size={16} color="#fff" />
+                        )}
+                        <Text style={styles.syncText}>Sync</Text>
+                    </TouchableOpacity>
+                </View>
 
                 {loading && records.length === 0 ? (
                     <View style={styles.initialLoader}>
@@ -256,17 +277,8 @@ export default function RecordsScreen({ navigation }) {
                         }
                         renderItem={renderItem}
                         contentContainerStyle={{ paddingBottom: 120 }}
-                        refreshControl={
-                            <RefreshControl
-                                refreshing={refreshing}
-                                onRefresh={onRefresh}
-                            />
-                        }
                         onEndReached={loadMore}
                         onEndReachedThreshold={0.6}
-                        initialNumToRender={10}
-                        maxToRenderPerBatch={10}
-                        windowSize={5}
                         removeClippedSubviews
                         ListEmptyComponent={
                             !loading && (
@@ -301,11 +313,7 @@ export default function RecordsScreen({ navigation }) {
                 <CText style={styles.sectionLabel}>Linked QR</CText>
 
                 <View style={styles.segment}>
-                    {[
-                        { label: "All", value: null },
-                        { label: "Linked", value: true },
-                        { label: "Unlinked", value: false },
-                    ].map(opt => (
+                    {[{ label: "All", value: null }, { label: "Linked", value: true }, { label: "Unlinked", value: false }].map(opt => (
                         <TouchableOpacity
                             key={String(opt.value)}
                             style={[
@@ -398,6 +406,22 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: "#000",
     },
+    syncRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 8,
+    },
+    syncBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: theme.colors.light.primary,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 10,
+        gap: 6,
+    },
+    syncText: { color: "#fff", fontSize: 12 },
     card: {
         backgroundColor: theme.colors.light.card,
         borderRadius: 16,
@@ -415,7 +439,7 @@ const styles = StyleSheet.create({
     date: { fontSize: 11, color: "#999" },
     badge: {
         flexDirection: "row",
-        backgroundColor: theme.colors.light.primary + '1A',
+        backgroundColor: theme.colors.light.primary + "1A",
         borderRadius: theme.radius.sm,
         paddingHorizontal: 8,
         paddingVertical: 5,
